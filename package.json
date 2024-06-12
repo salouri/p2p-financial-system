@@ -1,0 +1,19 @@
+{
+  "name": "DecentraPay",
+  "version": "1.0.0",
+  "description": "\"# p2p-financial-system\"",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hyperswarm/rpc": "^3.3.2",
+    "hp-rpc-cli": "^0.0.5",
+    "hypercore": "^10.37.7",
+    "hyperswarm": "^4.7.15"
+  }
+}

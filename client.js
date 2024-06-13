@@ -1,44 +1,12 @@
-import Hyperswarm from 'hyperswarm';
-import crypto from 'crypto';
 import RPC from '@hyperswarm/rpc';
+import crypto from 'crypto';
+import Hyperswarm from 'hyperswarm';
 
-async function startServer() {
+async function startClient() {
   const rpc = new RPC();
-  const server = rpc.createServer();
 
-  // Define RPC methods
-  server.respond('ping', () => Buffer.from(JSON.stringify('pong')));
-  server.respond('sum', req => {
-    const {a, b} = JSON.parse(req.toString());
-    const result = a + b;
-    return Buffer.from(JSON.stringify(result));
-  });
-
-  await server.listen();
-
-  console.log('Server public key:', server.publicKey.toString('hex'));
-
-  const swarm = new Hyperswarm();
-
-  const topic = crypto
-    .createHash('sha256')
-    .update('simple-peer-discovery')
-    .digest();
-  swarm.join(topic, {lookup: true, announce: true});
-
-  swarm.on('connection', (socket, details) => {
-    console.log('Server: New peer connected');
-  });
-
-  swarm.on('peer', peerInfo => {
-    console.log('Server discovered peer:', peerInfo);
-  });
-
-  console.log('Server is running');
-}
-
-async function startClient(serverPublicKey) {
-  const rpc = new RPC();
+  const serverPublicKey =
+    'f40e8961eb7daa42593835e74b3e1935c7b8b0f032c79dc972469d1bd77eed25'; // Replace with the server public key from the server log
 
   const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
 
@@ -93,5 +61,4 @@ async function startClient(serverPublicKey) {
   console.log('Client is running');
 }
 
-export default startServer;
-export {startClient};
+startClient().catch(console.error);

@@ -1,5 +1,5 @@
-import {startServer} from './src/server-setup.js';
 import {startPeer} from './src/peer-setup.js';
+import {startServer} from './src/server-setup.js';
 
 /*
   mode: Passed as 'peer' when starting the application as a client or a 'server' for server
@@ -13,7 +13,7 @@ const storageDir = `./transactions-core-${peerId}`;
 if (mode === 'server') {
   startServer(storageDir);
 } else if (mode === 'peer') {
-  startPeer(serverPublicKey, storageDir);
+  startPeer(storageDir, serverPublicKey);
 } else {
   console.error('Invalid mode. Use "server" or "peer".');
   process.exit(1);

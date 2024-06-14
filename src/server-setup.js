@@ -21,6 +21,10 @@ export async function startServer(storageDir) {
 
   const server = rpc.createServer();
 
+  server.respond('sendPublicKey', async req => {
+    return {publicKey: server.publicKey.toString('hex')};
+  });
+
   server.respond('sendTransaction', async req => {
     const {sender, receiver, amount} = req;
     const transaction = {sender, receiver, amount, timeStamp: Date.now()};
@@ -37,22 +41,18 @@ export async function startServer(storageDir) {
   await server.listen();
   console.log('Server listening...');
 
+  const serverPublicKey = server.publicKey.toString('hex');
+  console.log('Server public key:', serverPublicKey);
+
   server.on('connection', rpc => {
     console.log('Server connected to a peer');
     registerRpcEvents(rpc);
 
-    if (rpc.write) {
-      const serverPublicKey = rpc.publicKey
-        ? rpc.publicKey.toString('hex')
-        : 'No public key';
-      console.log('Server public key:', serverPublicKey);
-      rpc.write(JSON.stringify({publicKey: serverPublicKey}));
-    }
+    // rpc.on('open', () => {
+    //   console.log('Sending server public key to peer');
+    //   rpc.request('sendPublicKey', {publicKey: serverPublicKey});
+    // });
   });
 
-  // Print the server's public key for reference
-  const serverPublicKey = rpc.defaultKeyPair.publicKey.toString('hex');
-  console.log('Server public key:', serverPublicKey);
-
-  console.log('Server is running...');
+  console.log('Server is running');
 }

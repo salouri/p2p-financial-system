@@ -4,7 +4,7 @@ import Hyperswarm from 'hyperswarm';
 import {COMMON_TOPIC} from './config.js';
 import {registerRpcEvents} from './utils.js';
 
-export async function startPeer(initialServerPublicKey, storageDir) {
+export async function startPeer(storageDir, initialServerPublicKey) {
   const swarm = new Hyperswarm();
   console.log('Hyperswarm instance created');
 
@@ -21,6 +21,7 @@ export async function startPeer(initialServerPublicKey, storageDir) {
     await commonDiscovery.flushed();
     publicKeyBuffer = rpc.defaultKeyPair.publicKey;
   }
+  console.log('>> publicKeyBuffer: ', publicKeyBuffer);
 
   const client = rpc.connect(publicKeyBuffer);
 
@@ -32,16 +33,16 @@ export async function startPeer(initialServerPublicKey, storageDir) {
       console.log('Client RPC connection opened');
 
       if (!initialServerPublicKey) {
-        socket.on('data', data => {
-          const message = JSON.parse(data.toString());
-          if (message?.publicKey) {
-            publicKeyBuffer = Buffer.from(message.publicKey, 'hex');
-            console.log(
-              'Received server public key:',
-              publicKeyBuffer.toString('hex'),
-            );
-          }
-        });
+        try {
+          const {publicKey} = await client.request('sendPublicKey', {});
+          publicKeyBuffer = Buffer.from(publicKey, 'hex');
+          console.log(
+            'Received server public key:',
+            publicKeyBuffer.toString('hex'),
+          );
+        } catch (error) {
+          console.error('Error receiving server public key:', error);
+        }
       }
 
       const sendArgs = {sender: 'Alice', receiver: 'Bob', amount: 100};

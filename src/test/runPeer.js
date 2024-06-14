@@ -9,4 +9,4 @@ const serverPublicKey = process.argv[2]; // Replace with server's public key if 
 
 const storageDir = `./transactions-core-${peerId}`;
 
-startPeer(serverPublicKey, storageDir);
+startPeer(storageDir, serverPublicKey);

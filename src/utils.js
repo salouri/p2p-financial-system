@@ -1,5 +1,6 @@
 import Hyperbee from 'hyperbee';
 import Hypercore from 'hypercore';
+import DHT from 'hyperdht';
 
 export async function createCoreAndBee(storageDir) {
   const core = new Hypercore(storageDir, {valueEncoding: 'json'});
@@ -30,3 +31,11 @@ export function registerRpcEvents(rpc) {
     console.log('RPC connection destroyed');
   });
 }
+
+export function generateKeys() {
+  const keys = DHT.keyPair();
+  const publicKey = keys.publicKey.toString('hex');
+  const secretKey = keys.secretKey.toString('hex');
+  return {publicKey, secretKey};
+}
+

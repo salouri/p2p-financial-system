@@ -1,14 +1,14 @@
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
-import {COMMON_TOPIC} from './config.js';
+import {COMMON_TOPIC, VALUE_ENCODING} from './config.js';
 import {createCoreAndBee, registerRpcEvents} from './utils.js';
 
 export async function startServer(storageDir) {
   const swarm = new Hyperswarm();
   console.log('Hyperswarm instance created');
 
-  const {core, db} = await createCoreAndBee(storageDir);
+  const {core, db} = await createCoreAndBee(storageDir, VALUE_ENCODING);
 
   const dht = new DHT();
   const rpc = new RPC({dht});
@@ -21,7 +21,7 @@ export async function startServer(storageDir) {
 
   const server = rpc.createServer();
 
-  server.respond('sendPublicKey', async req => {
+  server.respond('sendPublicKey', async () => {
     return {publicKey: server.publicKey.toString('hex')};
   });
 
@@ -47,11 +47,6 @@ export async function startServer(storageDir) {
   server.on('connection', rpc => {
     console.log('Server connected to a peer');
     registerRpcEvents(rpc);
-
-    // rpc.on('open', () => {
-    //   console.log('Sending server public key to peer');
-    //   rpc.request('sendPublicKey', {publicKey: serverPublicKey});
-    // });
   });
 
   console.log('Server is running');

@@ -73,3 +73,5 @@ yarn-error.log
 *.ps1
 
 oplog*
+
+*.env

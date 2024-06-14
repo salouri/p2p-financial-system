@@ -71,3 +71,5 @@ yarn-error.log
 
 *.zip
 *.ps1
+
+oplog*

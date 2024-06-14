@@ -1,115 +1,142 @@
-import RPC from '@hyperswarm/rpc';
+import { createClient, createServer } from '@hyperswarm/rpc';
 import Hyperbee from 'hyperbee';
 import Hypercore from 'hypercore';
+import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
 
 async function startNode(mode, storageDir, initialServerPublicKey = null) {
-  // Set up Hyperswarm for peer-to-peer networking
   const swarm = new Hyperswarm();
+  console.log('Hyperswarm instance created');
 
-  // Set up RPC for handling remote procedure calls between peers
-  const rpc = new RPC();
-
-  // Create a Hypercore instance to store transaction data
-  const core = new Hypercore(storageDir);
-  // Create a Hyperbee instance for key-value storage on top of Hypercore
-  const bee = new Hyperbee(core, {keyEncoding: 'utf-8', valueEncoding: 'json'});
-
+  const core = new Hypercore(storageDir, {valueEncoding: 'json'});
+  console.log('Hypercore instance created with storage directory:', storageDir);
   await core.ready();
+
+  const db = new Hyperbee(core, {
+    keyEncoding: 'utf-8',
+    valueEncoding: 'json',
+  });
+  console.log('Hyperbee instance created');
+
   console.log('Node public key:', core.key.toString('hex'));
-  // Determine announce and lookup based on the mode and initialServerPublicKey
-  const isServerNode = initialServerPublicKey ? false : true;
-  // Join the Hyperswarm network using the discovery key of the Hypercore instance
-  swarm.join(core.discoveryKey, {lookup: true, announce: isServerNode});
-  console.log('>> Joined swarm with announce:', isServerNode);
-  // Ensure the swarm is fully joined before proceeding
-  await swarm.flush();
-  console.log('Swarm has fully joined');
-  if (isServerNode) {
-    // Ensure the swarm is listening before proceeding, if it's a server node
-    await swarm.listen();
-    console.log('Swarm is listening for connections');
-  }
-  // Handle new peer connections
-  swarm.on('connection', (socket, details) => {
-    console.log('Node: New peer connected', details);
 
-    rpc.handle(socket, {
-      // Define the sendTransaction RPC method
-      sendTransaction: async (args, cb) => {
-        try {
-          const {sender, receiver, amount} = JSON.parse(args.toString());
-          const transaction = {sender, receiver, amount, timeStamp: Date.now()};
-          await bee.put(`${sender}-${Date.now()}`, transaction);
-          const responseStr = JSON.stringify({status: 'success', transaction});
-          const bufferedSuccessResponse = Buffer.from(responseStr);
-          cb(null, bufferedSuccessResponse);
-        } catch (err) {
-          cb(err);
+  // Initialize Hyperswarm
+  const swarm = new Hyperswarm();
+  const dht = new DHT();
+
+  // common topic for initial  discovery of peers
+  const commonTopic = Buffer.alloc(32).fill('decentrapay');
+  console.log('Using topic:', commonTopic.toString('hex'));
+
+  // Initialize Hyperswarm RPC
+  const rpc = new RPC(swarm);
+  if (mode === 'server') {
+    const discovery = swarm.join(commonTopic, {
+      server: true,
+      client: true,
+    });
+    await discovery.flushed(); // Ensure the swarm is fully flushed and ready
+
+    const server = createServer();
+
+    server.respond('sendTransaction', async req => {
+      const {sender, receiver, amount} = req;
+      const transaction = {sender, receiver, amount, timeStamp: Date.now()};
+      // await bee.put(`${sender}-${Date.now()}`, transaction);
+      await core.append({type: 'transaction', value: transaction});
+      return {status: true, transaction};
+    });
+
+    server.respond('getTransaction', async req => {
+      const {index} = req;
+      const data = await core.get(index);
+      return data;
+    });
+
+    swarm.on('connection', (socket, details) => {
+      server.attach(socket); // Attach RPC to the socket
+      console.log('Server connected to a peer');
+
+      socket.on('close', () => {
+        console.log('Connection closed');
+      });
+
+      socket.on('error', err => {
+        console.error('Connection error:', err);
+      });
+
+      // Send the server's public key to the client for secure connection
+      socket.write(
+        JSON.stringify({publicKey: server.publicKey.toString('hex')}),
+      );
+    });
+  } else if (mode === 'peer') {
+    if (initialServerPublicKey) {
+      // Direct connection using server's public key
+      const specificTopic = Buffer.from(initialServerPublicKey, 'hex'); // Use server's public key for specific connection
+      const specificDiscovery = swarm.join(specificTopic, { client: true });
+      await specificDiscovery.flushed();
+    } else {
+      // Join the common topic for initial discovery
+      const commonDiscovery = swarm.join(commonTopic, { client: true });
+      await commonDiscovery.flushed();
+    }
+    const client = createClient();
+
+    swarm.on('connection', socket => {
+      client.attach(socket);
+      console.log('Peer connected to the server');
+
+      socket.on('data', (data) => {
+         // Receive the server's public key for secure connection if not provided initially
+         if (!initialServerPublicKey) {
+        const message = JSON.parse(data.toString());
+        if(message?.publicKey){
+          const speceifciTopic = Buffer.from(message.publicKey, 'hex');
+          const specificDiscovery = swarm.join(speceifciTopic, {client: true});
+          await specificDiscovery.flushed();
+          console.log('Secure connection established using specific topic.');
         }
-      },
-      // Define the getTransaction RPC method
-      getTransaction: async (args, cb) => {
-        try {
-          const {key} = JSON.parse(args.toString());
-          const transaction = await bee.get(key);
-          cb(null, Buffer.from(JSON.stringify(transaction.value)));
-        } catch (err) {
-          cb(err);
-        }
-      },
-    });
-  }); // swamr-on-connection
-
-  // If acting as a peer, connect to the initial server public key if provided
-  if (mode === 'peer' && initialServerPublicKey) {
-    const publicKeyBuffer = Buffer.from(initialServerPublicKey, 'hex'); // Convert from hex string to buffer
-    const client = rpc.connect(publicKeyBuffer); // Connect to the server
-
-    client.on('open', async () => {
-      // open: the connection to the remote peer has been successfully established and the RPC protocol is ready for communication
-      console.log('Client connected to server');
-    });
-
-    client.on('close', () => {
-      console.error('Client connection closed');
-    });
-
-    client.on('error', err => {
-      console.error('Client encountered an error:', err);
-    });
-
-    process.stdin.setEncoding('utf-8');
-    process.stdin.on('data', async data => {
-      try {
-        const input = JSON.parse(data.trim());
-        const {action, sender, receiver, amount, key} = input;
-        if (action === 'sendTransaction') {
-          const sendArgs = Buffer.from(
-            JSON.stringify({sender, receiver, amount}),
-          );
-          console.log(
-            `>> action: ${action}, sender: ${sender}, receiver: ${receiver}, amount: ${amount}, key: ${key}`,
-          );
-          const response = await client.request('sendTransaction', sendArgs);
-          console.log('Transaction response:', JSON.parse(response.toString()));
-        } else if (action === 'getTransaction') {
-          const getArgs = Buffer.from(JSON.stringify({key}));
-          const transactionResponse = await client.request(
-            'getTransaction',
-            getArgs,
-          );
-          console.log(
-            'Transaction data:',
-            JSON.parse(transactionResponse.toString()),
-          );
-        }
-      } catch (err) {
-        console.error('Error during request:', err);
       }
+      })
+
+      socket.on('open', async () => {
+        console.log('Client connected to server');
+        const sendArgs = {sender: 'Alice', receiver: 'Bob', amount: 100};
+        try {
+          const sendResponse = await client.request('sendTransaction', [
+            sendArgs,
+          ]);
+          console.log('Transaction sent:', sendResponse);
+        } catch (error) {
+          console.error('Error sending transaction:', error);
+        }
+
+        try {
+          const getResponse = await client.request('getTransaction', [
+            sendArgs,
+          ]);
+          console.log('Transaction received:', getResponse);
+        } catch (error) {
+          console.error('Error getting transaction:', error);
+        }
+      });
+
+      socket.on('close', () => {
+        console.log('Connection closed');
+      });
+
+      socket.on('error', err => {
+        console.error('Connection error:', err);
+      });
     });
-  } // if peer && initialServerPublicKey
+
+    await swarm.flush(); // Ensuring the client connection is fully flushed
+    console.log('Client is ready and looking for servers');
+  }else{
+    throw new Error('Invalid mode');
+  }
   console.log('Node is running');
-} // startNode
+}
 
 export default startNode;

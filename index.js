@@ -1,16 +1,20 @@
-import startNode from './src/hyperswarm-setup.js';
+import {startServer} from './src/server-setup.js';
+import {startPeer} from './src/peer-setup.js';
 
 /*
-  mode: Passed as 'peer' when starting the application
+  mode: Passed as 'peer' when starting the application as a client or a 'server' for server
   peerId: Unique identifier for each peer
   serverPublicKey - Optional: Public key of the server for initial connection
 */
 const [, , mode, peerId, serverPublicKey] = process.argv;
-if (!peerId) {
-  console.error('Error: You must provide a unique peer identifier.');
-  process.exit(1);
-}
 
 const storageDir = `./transactions-core-${peerId}`;
 
-startNode(mode, storageDir, serverPublicKey);
+if (mode === 'server') {
+  startServer(storageDir);
+} else if (mode === 'peer') {
+  startPeer(serverPublicKey, storageDir);
+} else {
+  console.error('Invalid mode. Use "server" or "peer".');
+  process.exit(1);
+}

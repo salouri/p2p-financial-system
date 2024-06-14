@@ -13,6 +13,7 @@
   "dependencies": {
     "@hyperswarm/rpc": "^3.3.2",
     "hp-rpc-cli": "^0.0.5",
+    "hyperbee": "^2.19.6",
     "hypercore": "^10.37.7",
     "hyperswarm": "^4.7.15"
   }

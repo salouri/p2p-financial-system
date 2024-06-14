@@ -16,7 +16,7 @@ export async function createCoreAndBee(storageDir) {
 }
 
 export function registerRpcEvents(rpc) {
-  console.log('RPC Instance:', rpc);
+  // console.log('RPC Instance:', rpc);
 
   rpc.on('open', () => {
     console.log('RPC connection opened');

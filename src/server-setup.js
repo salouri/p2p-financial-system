@@ -1,28 +1,22 @@
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
-import Hyperswarm from 'hyperswarm';
 import {COMMON_TOPIC, VALUE_ENCODING} from './config.js';
 import {createCoreAndBee, registerRpcEvents} from './utils.js';
 
 export async function startServer(storageDir) {
-  const swarm = new Hyperswarm();
-  console.log('Hyperswarm instance created');
-
   const {core, db} = await createCoreAndBee(storageDir, VALUE_ENCODING);
 
   const dht = new DHT();
+  // Initialize the RPC server with the DHT instance
   const rpc = new RPC({dht});
 
-  const discovery = swarm.join(COMMON_TOPIC, {
-    server: true,
-    client: true,
-  });
-  await discovery.flushed(); // Ensure the swarm is fully flushed and ready
-
+  // Join the common topic for discovery
+  const topic = Buffer.alloc(32).fill(COMMON_TOPIC);
   const server = rpc.createServer();
 
+  // Register the methods for handling requests
   server.respond('sendPublicKey', async () => {
-    return {publicKey: server.publicKey.toString('hex')};
+    return {publicKey: rpc.defaultKeyPair.publicKey.toString('hex')};
   });
 
   server.respond('sendTransaction', async req => {
@@ -41,12 +35,30 @@ export async function startServer(storageDir) {
   await server.listen();
   console.log('Server listening...');
 
-  const serverPublicKey = server.publicKey.toString('hex');
-  console.log('Server public key:', serverPublicKey);
+  // Ensure key pair is generated correctly and is 32 bytes long
+  const keyPair = dht.defaultKeyPair;
+  if (keyPair.publicKey.byteLength !== 32) {
+    throw new Error('Generated public key is not 32 bytes long');
+  }
 
-  server.on('connection', rpc => {
+  const serverPublicKey = keyPair.publicKey.toString('hex');
+  //   const serverPublicKey = rpc.defaultKeyPair.publicKey.toString('hex');
+  console.log('Server public key:', serverPublicKey);
+  if (serverPublicKey.length !== 64) {
+    throw new Error(
+      `Server public key must be 32 bytes long, but got ${
+        serverPublicKey.length / 2
+      } bytes (${serverPublicKey.length} hex characters)`,
+    );
+  }
+
+  dht.announce(topic, {keyPair: rpc.defaultKeyPair});
+  console.log('Server announced on DHT.');
+
+  server.on('connection', client => {
+    // client: rpc client
     console.log('Server connected to a peer');
-    registerRpcEvents(rpc);
+    registerRpcEvents(client);
   });
 
   console.log('Server is running');

@@ -1,25 +1,27 @@
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
-import Hyperswarm from 'hyperswarm';
 import {COMMON_TOPIC, VALUE_ENCODING} from './config.js';
-import {registerRpcEvents} from './utils.js';
 
-export async function startPeer(storageDir, initialServerPublicKey) {
-  const swarm = new Hyperswarm();
-  console.log('Hyperswarm instance created');
-
+export async function startPeer(storageDir, initialServerPublicKey = null) {
+  if (initialServerPublicKey && initialServerPublicKey.length !== 64) {
+    // 64 hex chars = 32 bytes
+    throw new Error(
+      `Initial server public key must be 32 bytes long, but got ${
+        initialServerPublicKey.length / 2
+      } bytes (${initialServerPublicKey.length} hex characters)`,
+    );
+  }
   const dht = new DHT();
   const rpc = new RPC({dht});
 
   let publicKeyBuffer;
   if (initialServerPublicKey) {
     publicKeyBuffer = Buffer.from(initialServerPublicKey, 'hex');
-    const specificDiscovery = swarm.join(publicKeyBuffer, {client: true});
-    await specificDiscovery.flushed();
+    if (publicKeyBuffer.length !== 32) {
+      throw new Error('Initial server public key must be 32 bytes long');
+    }
   } else {
-    const commonDiscovery = swarm.join(COMMON_TOPIC, {client: true});
-    await commonDiscovery.flushed();
-    publicKeyBuffer = rpc.defaultKeyPair.publicKey;
+    publicKeyBuffer = Buffer.alloc(32).fill(COMMON_TOPIC);
   }
 
   const client = rpc.connect(publicKeyBuffer);
@@ -46,7 +48,7 @@ export async function startPeer(storageDir, initialServerPublicKey) {
 
     const sendArgs = {sender: 'Alice', receiver: 'Bob', amount: 100};
     try {
-      const sendResponse = await client.request('sendTransaction', [sendArgs], {
+      const sendResponse = await client.request('sendTransaction', sendArgs, {
         valueEncoding: VALUE_ENCODING,
       });
       console.log('Transaction sent:', sendResponse);
@@ -55,21 +57,26 @@ export async function startPeer(storageDir, initialServerPublicKey) {
     }
 
     try {
-      const getResponse = await client.request('getTransaction', [{index: 0}], {
-        valueEncoding: VALUE_ENCODING,
-      });
+      const getResponse = await client.request(
+        'getTransaction',
+        {index: 0},
+        {
+          valueEncoding: VALUE_ENCODING,
+        },
+      );
       console.log('Transaction received:', getResponse);
     } catch (error) {
       console.error('Error getting transaction:', error);
     }
   });
 
-  swarm.on('connection', (socket, peerInfo) => {
-    console.log('Peer connected to the server');
-    registerRpcEvents(client);
+  // Lookup and connect to the server
+  const topic = Buffer.alloc(32).fill(COMMON_TOPIC);
+  dht.lookup(topic).on('data', data => {
+    console.log('Found peer:', data);
+    rpc.connect(data.from);
   });
 
-  await swarm.flush();
-  console.log('Client is ready and looking for servers');
+  // Announce our presence on the topic
   console.log('Peer is running');
 }

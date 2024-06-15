@@ -16,18 +16,16 @@ export async function createCoreAndBee(storageDir, valueEncoding) {
   return {core, db};
 }
 
-export function registerRpcEvents(rpc) {
-  // console.log('RPC Instance:', rpc);
-
-  rpc.on('open', () => {
+export function registerRpcEvents(rpcClient) {
+  rpcClient.on('open', () => {
     console.log('RPC connection opened');
   });
 
-  rpc.on('close', () => {
+  rpcClient.on('close', () => {
     console.log('RPC connection closed');
   });
 
-  rpc.on('destroy', () => {
+  rpcClient.on('destroy', () => {
     console.log('RPC connection destroyed');
   });
 }

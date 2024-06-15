@@ -1,51 +1,64 @@
 import RPC from '@hyperswarm/rpc';
+import dotenv from 'dotenv';
 import DHT from 'hyperdht';
-import Hyperswarm from 'hyperswarm';
-import {COMMON_TOPIC, VALUE_ENCODING} from './config.js';
+import {COMMON_TOPIC} from './config.js';
 import {createCoreAndBee, registerRpcEvents} from './utils.js';
 
+dotenv.config();
 export async function startServer(storageDir) {
-  const swarm = new Hyperswarm();
-  console.log('Hyperswarm instance created');
-
-  const {core, db} = await createCoreAndBee(storageDir, VALUE_ENCODING);
+  const {core, db} = await createCoreAndBee(storageDir);
 
   const dht = new DHT();
   const rpc = new RPC({dht});
 
-  const discovery = swarm.join(COMMON_TOPIC, {
-    server: true,
-    client: true,
-  });
-  await discovery.flushed(); // Ensure the swarm is fully flushed and ready
-
   const server = rpc.createServer();
 
   server.respond('sendPublicKey', async () => {
-    return {publicKey: server.publicKey.toString('hex')};
+    console.log('Received request for sending public key');
+    return {publicKey: rpc.defaultKeyPair.publicKey.toString('hex')};
   });
 
   server.respond('sendTransaction', async req => {
-    const {sender, receiver, amount} = req;
+    const data = JSON.parse(req.toString());
+    console.log('Received transaction details:', data);
+    const {sender, receiver, amount} = data;
     const transaction = {sender, receiver, amount, timeStamp: Date.now()};
-    await core.append({type: 'transaction', value: transaction});
-    return {status: true, transaction};
+    const logRecord = JSON.stringify({type: 'transaction', value: transaction});
+    await core.append(logRecord);
+    return Buffer.from(JSON.stringify({status: true, transaction}));
   });
 
   server.respond('getTransaction', async req => {
-    const {index} = req;
+    console.log(
+      'Received request for transaction:',
+      JSON.parse(req.toString()),
+    );
+    const {index} = JSON.parse(req.toString());
     const data = await core.get(index);
-    return data;
+    return Buffer.from(JSON.stringify(data));
   });
 
   await server.listen();
-  console.log('Server listening...');
+  console.log('Server is listening...');
 
-  const serverPublicKey = server.publicKey.toString('hex');
+  const serverPublicKey = rpc.defaultKeyPair.publicKey.toString('hex');
   console.log('Server public key:', serverPublicKey);
+  // check if public key is 32 bytes:
+  if (serverPublicKey.length !== 64) {
+    throw new Error('Server public key is not 32 bytes');
+  }
+
+  const topic = Buffer.alloc(32).fill(COMMON_TOPIC);
+  dht.announce(topic, rpc.defaultKeyPair, err => {
+    if (err) {
+      console.error('Failed to announce on DHT:', err);
+      return;
+    }
+    console.log('Server announced on DHT.');
+  });
 
   server.on('connection', rpc => {
-    console.log('Server connected to a peer');
+    console.log('Server connected to a peer (through RPC)');
     registerRpcEvents(rpc);
   });
 

@@ -1,18 +1,20 @@
 import RPC from '@hyperswarm/rpc';
 import dotenv from 'dotenv';
 import DHT from 'hyperdht';
-import {COMMON_TOPIC} from './config.js';
-import {createCoreAndBee, registerRpcEvents} from './utils.js';
+import { COMMON_TOPIC, VALUE_ENCODING } from './config.js';
+import { createCoreAndBee, registerRpcEvents } from './utils.js';
 
 dotenv.config();
 export async function startServer(storageDir) {
-  const {core, db} = await createCoreAndBee(storageDir);
+  const {core, db} = await createCoreAndBee(storageDir, VALUE_ENCODING);
 
   const dht = new DHT();
+  // Initialize the RPC server with the DHT instance
   const rpc = new RPC({dht});
 
   const server = rpc.createServer();
 
+  // Register the methods for handling requests
   server.respond('sendPublicKey', async () => {
     console.log('Received request for sending public key');
     return {publicKey: rpc.defaultKeyPair.publicKey.toString('hex')};

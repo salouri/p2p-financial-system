@@ -2,7 +2,7 @@ import Hyperbee from 'hyperbee';
 import Hypercore from 'hypercore';
 import DHT from 'hyperdht';
 
-export async function createCoreAndBee(storageDir, valueEncoding) {
+export async function createCoreAndBee(storageDir, valueEncoding = 'json') {
   const core = new Hypercore(storageDir, {valueEncoding});
   console.log('Hypercore instance created with storage directory:', storageDir);
   await core.ready();

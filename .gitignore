@@ -72,7 +72,11 @@ yarn-error.log
 *.zip
 *.ps1
 
-oplog*
-transactions-core-*/
+oplog
+bitfield
+data
+tree
+
+/storage
 
 *.env

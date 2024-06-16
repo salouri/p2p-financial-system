@@ -1,6 +1,6 @@
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
-import {COMMON_TOPIC} from './config.js';
+import {COMMON_TOPIC} from '../common/config.js';
 
 export async function startPeer(storageDir, initialServerPublicKey) {
   const dht = new DHT();
@@ -34,25 +34,32 @@ export async function startPeer(storageDir, initialServerPublicKey) {
       }
     }
 
-    const sendArgs = {sender: 'Alice', receiver: 'Bob', amount: 100};
+    let transIndex = null;
     try {
-      const sendResponse = await client.request(
+      const sendArgs = {sender: 'Alice', receiver: 'Bob', amount: 100};
+      const sendRes = await client.request(
         'sendTransaction',
         Buffer.from(JSON.stringify(sendArgs)),
       );
-      console.log('Transaction sent:', JSON.parse(sendResponse.toString()));
+      console.log('Transaction sent:', JSON.parse(sendRes.toString()));
+      transIndex = JSON.parse(sendRes.toString()).index;
     } catch (error) {
       console.error('Error sending transaction:', error);
     }
 
-    try {
-      const getResponse = await client.request(
-        'getTransaction',
-        Buffer.from(JSON.stringify({index: 0})),
-      );
-      console.log('Transaction received:', JSON.parse(getResponse.toString()));
-    } catch (error) {
-      console.error('Error getting transaction:', error);
+    if (transIndex != null) {
+      try {
+        const getResponse = await client.request(
+          'getTransaction',
+          Buffer.from(JSON.stringify({index: transIndex})),
+        );
+        console.log(
+          'Transaction received:',
+          JSON.parse(getResponse.toString()),
+        );
+      } catch (error) {
+        console.error('Error getting transaction:', error);
+      }
     }
   });
 

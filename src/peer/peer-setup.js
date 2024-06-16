@@ -1,9 +1,9 @@
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
-import {COMMON_TOPIC} from '../common/config.js';
+import {BOOTSTRAP_NODES, COMMON_TOPIC} from '../common/config.js';
 
 export async function startPeer(storageDir, initialServerPublicKey) {
-  const dht = new DHT();
+  const dht = new DHT({bootstrap: BOOTSTRAP_NODES});
   const rpc = new RPC({dht});
 
   let publicKeyBuffer;
@@ -19,6 +19,7 @@ export async function startPeer(storageDir, initialServerPublicKey) {
     console.log('Client RPC connection opened');
 
     if (!initialServerPublicKey) {
+      console.log('Requesting Server-Public-Key...');
       try {
         const {publicKey} = await client.request(
           'sendPublicKey',

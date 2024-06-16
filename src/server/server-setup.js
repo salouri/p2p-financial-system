@@ -1,7 +1,7 @@
 import RPC from '@hyperswarm/rpc';
 import dotenv from 'dotenv';
 import DHT from 'hyperdht';
-import {COMMON_TOPIC} from '../common/config.js';
+import {BOOTSTRAP_NODES, COMMON_TOPIC} from '../common/config.js';
 import {handleGetTransaction, handleSendTransaction} from './serverHandlers.js';
 import {createCoreAndBee} from './utils/createCoreAndBee.js';
 import {registerRpcEvents} from './utils/registerRpcEvents.js';
@@ -14,7 +14,19 @@ export async function startServer(storageDir) {
     publicKey: Buffer.from(process.env.PUBLIC_KEY, 'hex'),
     secretKey: Buffer.from(process.env.SECRET_KEY, 'hex'),
   };
-  const dht = new DHT();
+  const dht = new DHT({bootstrap: BOOTSTRAP_NODES});
+
+  const topic = Buffer.alloc(32).fill(COMMON_TOPIC);
+  dht.on('ready', async () => {
+    console.log('DHT node is ready');
+    await dht.announce(topic, keyPair);
+    console.log('Announced on DHT');
+
+    const stream = dht.lookup(topic);
+    stream.on('data', data => {
+      console.log('Peer found:', data);
+    });
+  });
   await dht.ready();
 
   const rpc = new RPC({dht, keyPair});
@@ -24,7 +36,7 @@ export async function startServer(storageDir) {
 
   server.respond('sendPublicKey', async () => {
     console.log('Received request for sending public key');
-    return {publicKey: serverPublicKey};
+    return Buffer.from(JSON.stringify({publicKey: serverPublicKey}));
   });
 
   server.respond('sendTransaction', async req => {

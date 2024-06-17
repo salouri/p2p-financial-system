@@ -1,15 +1,10 @@
-export default function registerSocketEvents(socket, conns) {
+export default function registerSocketEvents(socket) {
   socket.on('connect', () => {
     console.log('---- Socket Connection established');
   });
 
   socket.on('close', () => {
     console.log('---- Socket Connection closed');
-    delete conns[peerPublicKeyStr];
-    console.log(
-      `---- connection removed: ${peerPublicKeyStr.substring(0, 10)}...`,
-    );
-    console.log('---- total connections remain:', Object.keys(conns).length);
   });
 
   socket.on('data', data => {

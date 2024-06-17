@@ -6,6 +6,9 @@ import handleTermination from '../common/utils/handleTermination.js';
 import serverRespondHandler from './serverRespondHandler.js';
 import {createCoreAndBee} from './utils/createCoreAndBee.js';
 import registerSocketEvents from './utils/registerSocketEvents.js';
+
+const connectedPeers = new Set();
+
 export async function startServer(storageDir) {
   const swarm = new Hyperswarm();
 
@@ -29,22 +32,34 @@ export async function startServer(storageDir) {
   });
   server.on('close', () => {
     console.log('***** Server is closed');
-    Object.values(conns).forEach(conn => {
-      conn.destroy();
-    });
+
+    for (const connection of connectedPeers) {
+      connection.write(
+        Buffer.from(JSON.stringify({message: 'Server is shutting down.'})),
+      );
+      connection.destroy();
+    }
+    swarm.destroy();
+    console.log('***** All connections closed and swarm destroyed.');
+    process.exit();
   });
+
   server.on('connection', rpcClient => {
-    console.log('**** Server got a connection');
+    console.log('**** Server got a new connection');
+
+    connectedPeers.add(rpcClient);
+    console.log('Connected RPC clients:', connectedPeers.size);
 
     rpcClient.on('close', () => {
-      console.log('#### Server is closed');
+      console.log('#### RPC connection closed');
 
-      const peerPublicKeyStr = rpcClient.remotePublicKey.toString('hex');
-      delete conns[peerPublicKeyStr];
+      const peerPublicKeyStr = rpcClient?.remotePublicKey.toString('hex');
+      connectedPeers.delete(rpcClient);
+
       console.log(
-        `#### connection removed: ${peerPublicKeyStr.substring(0, 10)}...`,
+        `#### connection removed: ${peerPublicKeyStr.substring(0, 15)}...`,
       );
-      console.log('#### total connections remain:', Object.keys(conns).length);
+      console.log('#### Connected RPC clients:', connectedPeers.size);
     });
 
     rpcClient.on('destroy', () => {
@@ -65,7 +80,6 @@ export async function startServer(storageDir) {
     return await serverRespondHandler.getTransaction(req, core);
   });
 
-  const conns = {};
   swarm.on('connection', (socket, info) => {
     console.log('>>>> swarm: got a new connection.');
 
@@ -73,18 +87,14 @@ export async function startServer(storageDir) {
       '>>>> remotePublicKey:',
       socket.remotePublicKey.toString('hex'),
     );
-    console.log('>>>> publicKey:', socket.publicKey.toString('hex'));
+    console.log('     publicKey:', socket.publicKey.toString('hex'));
     socket.write(
       Buffer.from(
         JSON.stringify({serverPublicKey: server.publicKey.toString('hex')}),
       ),
     );
 
-    const peerPublicKeyStr = socket.remotePublicKey.toString('hex');
-    conns[peerPublicKeyStr] = socket;
-    console.log('>>>> total connections:', Object.keys(conns).length);
-
-    registerSocketEvents(socket, conns);
+    registerSocketEvents(socket);
 
     const peerRpc = rpc.connect(socket.publicKey);
 
@@ -96,8 +106,8 @@ export async function startServer(storageDir) {
       console.log('++++ Server-side RPC connection closed');
     });
 
-    peerRpc.on('destroy', err => {
-      console.log('++++ Server-side RPC connection destroyed:', err);
+    peerRpc.on('destroy', () => {
+      console.log('++++ Server-side RPC connection destroyed:');
     });
   });
 

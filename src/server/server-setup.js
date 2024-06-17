@@ -1,74 +1,111 @@
 import RPC from '@hyperswarm/rpc';
-import dotenv from 'dotenv';
 import DHT from 'hyperdht';
-import {BOOTSTRAP_NODES, COMMON_TOPIC} from '../common/config.js';
-import {handleGetTransaction, handleSendTransaction} from './serverHandlers.js';
+import Hyperswarm from 'hyperswarm';
+import {bootstrapNodes, commonTopic, keyPair} from '../common/config.js';
+import handleTermination from '../common/utils/handleTermination.js';
+import serverRespondHandler from './serverRespondHandler.js';
 import {createCoreAndBee} from './utils/createCoreAndBee.js';
-import {registerRpcEvents} from './utils/registerRpcEvents.js';
-
-dotenv.config();
+import registerSocketEvents from './utils/registerSocketEvents.js';
 export async function startServer(storageDir) {
+  const swarm = new Hyperswarm();
+
   const {core} = await createCoreAndBee(storageDir, 'json');
 
-  const keyPair = {
-    publicKey: Buffer.from(process.env.PUBLIC_KEY, 'hex'),
-    secretKey: Buffer.from(process.env.SECRET_KEY, 'hex'),
-  };
-  const dht = new DHT({bootstrap: BOOTSTRAP_NODES});
-
-  const topic = Buffer.alloc(32).fill(COMMON_TOPIC);
-  dht.on('ready', async () => {
-    console.log('DHT node is ready');
-    await dht.announce(topic, keyPair);
-    console.log('Announced on DHT');
-
-    const stream = dht.lookup(topic);
-    stream.on('data', data => {
-      console.log('Peer found:', data);
-    });
-  });
+  const dht = new DHT({port: 40001, keyPair, bootstrap: bootstrapNodes});
   await dht.ready();
 
-  const rpc = new RPC({dht, keyPair});
-  const server = rpc.createServer({keyPair});
+  const rpc = new RPC({dht, keyPair}); // can take {dht, keyPair}
 
-  const serverPublicKey = rpc.defaultKeyPair.publicKey.toString('hex');
+  const server = rpc.createServer();
+  await server.listen();
 
-  server.respond('sendPublicKey', async () => {
-    console.log('Received request for sending public key');
-    return Buffer.from(JSON.stringify({publicKey: serverPublicKey}));
+  const serverPublicKey = server.publicKey.toString('hex');
+
+  console.log('Server Public Key:', serverPublicKey);
+
+  // ############## Define Server Events ##############
+  server.on('listening', () => {
+    console.log('Server is listening...');
   });
+  server.on('close', () => {
+    console.log('***** Server is closed');
+    Object.values(conns).forEach(conn => {
+      conn.destroy();
+    });
+  });
+  server.on('connection', rpcClient => {
+    console.log('**** Server got a connection');
+
+    rpcClient.on('close', () => {
+      console.log('#### Server is closed');
+
+      const peerPublicKeyStr = rpcClient.remotePublicKey.toString('hex');
+      delete conns[peerPublicKeyStr];
+      console.log(
+        `#### connection removed: ${peerPublicKeyStr.substring(0, 10)}...`,
+      );
+      console.log('#### total connections remain:', Object.keys(conns).length);
+    });
+
+    rpcClient.on('destroy', () => {
+      console.log('#### Server is destroyed');
+    });
+  }); // server-connection
+
+  // ############## Define Server Responces ##############
+  server.respond('sendPublicKey', serverPublicKey =>
+    serverRespondHandler.sendPublicKey(serverPublicKey),
+  );
 
   server.respond('sendTransaction', async req => {
-    return await handleSendTransaction(req, core);
+    return await serverRespondHandler.sendTransaction(req, core);
   });
 
   server.respond('getTransaction', async req => {
-    return await handleGetTransaction(req, core);
+    return await serverRespondHandler.getTransaction(req, core);
   });
 
-  await server.listen();
-  console.log('Server is listening...');
+  const conns = {};
+  swarm.on('connection', (socket, info) => {
+    console.log('>>>> swarm: got a new connection.');
 
-  console.log('Server public key:', serverPublicKey);
+    console.log(
+      '>>>> remotePublicKey:',
+      socket.remotePublicKey.toString('hex'),
+    );
+    console.log('>>>> publicKey:', socket.publicKey.toString('hex'));
+    socket.write(
+      Buffer.from(
+        JSON.stringify({serverPublicKey: server.publicKey.toString('hex')}),
+      ),
+    );
 
-  if (Buffer.from(serverPublicKey, 'hex').length !== 32) {
-    throw new Error('Server public key is not 32 bytes');
-  }
+    const peerPublicKeyStr = socket.remotePublicKey.toString('hex');
+    conns[peerPublicKeyStr] = socket;
+    console.log('>>>> total connections:', Object.keys(conns).length);
 
-  const topic = Buffer.alloc(32).fill(COMMON_TOPIC);
-  dht.announce(topic, rpc.defaultKeyPair, err => {
-    if (err) {
-      console.error('Failed to announce on DHT:', err);
-      return;
-    }
-    console.log('Server announced on DHT.');
+    registerSocketEvents(socket, conns);
+
+    const peerRpc = rpc.connect(socket.publicKey);
+
+    peerRpc.on('open', () => {
+      console.log('++++ Server-side RPC connection opened');
+    });
+
+    peerRpc.on('close', () => {
+      console.log('++++ Server-side RPC connection closed');
+    });
+
+    peerRpc.on('destroy', err => {
+      console.log('++++ Server-side RPC connection destroyed:', err);
+    });
   });
 
-  server.on('connection', rpc => {
-    console.log('Server connected to a peer (through RPC)');
-    registerRpcEvents(rpc);
-  });
+  //   const discovery = swarm.join(commonTopic, {keyPair});
+  const discovery = swarm.join(commonTopic, {server: true, client: true});
+  await discovery.flushed(); // once resolved, it means topic is joined
 
   console.log('Server is running');
+
+  handleTermination(swarm);
 }

@@ -1,4 +1,4 @@
-export async function handleSendTransaction(req, core) {
+export const sendTransaction = async (req, core) => {
   try {
     const data = JSON.parse(req.toString());
     console.log('Received transaction-data:', data);
@@ -16,9 +16,9 @@ export async function handleSendTransaction(req, core) {
     console.error('Error sending transaction:', error);
     return Buffer.from(JSON.stringify({status: false, error: error.message}));
   }
-}
+};
 
-export async function handleGetTransaction(req, core) {
+export const getTransaction = async (req, core) => {
   try {
     console.log(
       'Received request for transaction:',
@@ -34,4 +34,17 @@ export async function handleGetTransaction(req, core) {
     console.error('Error getting transaction:', error);
     return Buffer.from(JSON.stringify({status: false, error: error.message}));
   }
-}
+};
+
+export const sendPublicKey = publicKey => {
+  console.log('Received request for sending public key');
+
+  console.log('Sending public key:', publicKey);
+  return Buffer.from(JSON.stringify({publicKey}));
+};
+
+export default {
+  sendTransaction,
+  getTransaction,
+  sendPublicKey,
+};

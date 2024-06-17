@@ -1,81 +1,71 @@
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
-import {BOOTSTRAP_NODES, COMMON_TOPIC} from '../common/config.js';
+import Hyperswarm from 'hyperswarm';
+import {bootstrapNodes, commonTopic} from '../common/config.js';
+import handleTermination from '../common/utils/handleTermination.js';
+import registerPeerEvents from './registerPeerEvents.js';
 
 export async function startPeer(storageDir, initialServerPublicKey) {
-  const dht = new DHT({bootstrap: BOOTSTRAP_NODES});
-  const rpc = new RPC({dht});
+  const swarm = new Hyperswarm();
 
-  let publicKeyBuffer;
-  if (initialServerPublicKey) {
-    publicKeyBuffer = Buffer.from(initialServerPublicKey, 'hex');
-  } else {
-    publicKeyBuffer = Buffer.alloc(32).fill(COMMON_TOPIC);
-  }
+  const dht = new DHT({port: 50001, bootstrap: bootstrapNodes});
+  await dht.ready();
 
-  const client = rpc.connect(publicKeyBuffer);
+  const rpc = new RPC({dht}); // can take {dht, keyPair}
 
-  client.on('open', async () => {
-    console.log('Client RPC connection opened');
+  swarm.on('connection', async (connection, peerInfo) => {
+    console.log('>>>> swarm: got a new connection.');
 
-    if (!initialServerPublicKey) {
-      console.log('Requesting Server-Public-Key...');
-      try {
-        const {publicKey} = await client.request(
-          'sendPublicKey',
-          Buffer.alloc(0),
-        );
-        publicKeyBuffer = Buffer.from(publicKey, 'hex');
-        console.log(
-          'Received server public key:',
-          publicKeyBuffer.toString('hex'),
-        );
-      } catch (error) {
-        console.error('Error receiving server public key:', error);
+    console.log('remotePublicKey:', connection.remotePublicKey.toString('hex'));
+    console.log('publicKey:', connection.publicKey.toString('hex'));
+
+    connection.on('error', err => {
+      console.error('RPC Connection error:', err);
+    });
+    connection.on('data', async data => {
+      console.log('Received data from peer:', data.toString());
+      const {serverPublicKey} = JSON.parse(data.toString());
+      console.log('serverPublicKey:', serverPublicKey);
+      if (serverPublicKey) {
+        const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
+        registerPeerEvents(client);
+
+        // send transaction requestion
+        let transIndex = null;
+        try {
+          const sendArgs = {sender: 'Alice', receiver: 'Bob', amount: 100};
+          const sendRes = await client.request(
+            'sendTransaction',
+            Buffer.from(JSON.stringify(sendArgs)),
+          );
+          console.log('Transaction sent:', JSON.parse(sendRes.toString()));
+          transIndex = JSON.parse(sendRes.toString()).index;
+        } catch (error) {
+          console.error('Error sending transaction:', error);
+        }
+
+        if (transIndex != null) {
+          try {
+            const getResponse = await client.request(
+              'getTransaction',
+              Buffer.from(JSON.stringify({index: transIndex})),
+            );
+            console.log(
+              'Transaction received:',
+              JSON.parse(getResponse.toString()),
+            );
+          } catch (error) {
+            console.error('Error getting transaction:', error);
+          }
+        }
       }
-    }
-
-    let transIndex = null;
-    try {
-      const sendArgs = {sender: 'Alice', receiver: 'Bob', amount: 100};
-      const sendRes = await client.request(
-        'sendTransaction',
-        Buffer.from(JSON.stringify(sendArgs)),
-      );
-      console.log('Transaction sent:', JSON.parse(sendRes.toString()));
-      transIndex = JSON.parse(sendRes.toString()).index;
-    } catch (error) {
-      console.error('Error sending transaction:', error);
-    }
-
-    if (transIndex != null) {
-      try {
-        const getResponse = await client.request(
-          'getTransaction',
-          Buffer.from(JSON.stringify({index: transIndex})),
-        );
-        console.log(
-          'Transaction received:',
-          JSON.parse(getResponse.toString()),
-        );
-      } catch (error) {
-        console.error('Error getting transaction:', error);
-      }
-    }
+    });
   });
 
-  const topic = Buffer.alloc(32).fill(COMMON_TOPIC);
-  const discovery = dht.lookup(topic);
+  const discovery = swarm.join(commonTopic, {server: false, client: true});
+  await discovery.flushed(); // Waits for the swarm to connect to pending peers.
 
-  discovery.on('peer', peer => {
-    console.log('Peer found:', peer);
-    client.connect(peer.publicKey);
-  });
-
-  discovery.on('error', err => {
-    console.error('Discovery error:', err);
-  });
-
-  console.log('Client is ready and looking for servers');
   console.log('Peer is running');
+
+  handleTermination(swarm);
 }

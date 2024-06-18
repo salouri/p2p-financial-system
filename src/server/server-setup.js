@@ -12,7 +12,7 @@ import {
   sendPublicKeyRespond,
   sendTransactionRespond,
 } from './serverRespondHandler.js';
-import { createCoreAndBee } from './utils/createCoreAndBee.js';
+import {createCoreAndBee} from './utils/createCoreAndBee.js';
 import registerSocketEvents from './utils/registerSocketEvents.js';
 
 const connectedPeers = new Set();
@@ -20,7 +20,7 @@ const connectedPeers = new Set();
 export async function startServer(storageDir) {
   const swarm = new Hyperswarm();
 
-  const {core} = await createCoreAndBee(storageDir, 'json');
+  const {core, db} = await createCoreAndBee(storageDir, 'json');
 
   const keyPair = generateKeyPair();
   const dht = new DHT({keyPair, bootstrap: bootstrapNodes});
@@ -76,24 +76,28 @@ export async function startServer(storageDir) {
 
   // Define Server Responses
   server.respond('sendPublicKey', () => {
-    return sendPublicKeyRespond(serverPublicKey);
+    const response = sendPublicKeyRespond(serverPublicKey);
+    return Buffer.from(JSON.stringify(response));
   });
 
   server.respond('sendTransaction', async req => {
-    return await sendTransactionRespond(req, core);
+    const response = await sendTransactionRespond(req, core);
+    if (response.status) {
+      const dbRes = await db.put(
+        response.transaction.timeStamp,
+        response.transaction,
+      );
+    }
+    return Buffer.from(JSON.stringify(response));
   });
 
   server.respond('getTransaction', async req => {
-    return await getTransactionRespond(req, core);
+    const response = await getTransactionRespond(req, core);
+    return Buffer.from(JSON.stringify(response));
   });
 
   swarm.on('connection', (socket, info) => {
-    console.log('>>>> swarm: got a new connection.');
-    console.log(
-      '>>>> remotePublicKey:',
-      socket.remotePublicKey.toString('hex'),
-    );
-    console.log('     publicKey:', socket.publicKey.toString('hex'));
+    console.log('Swarm: got a new connection.');
     socket.write(
       Buffer.from(
         JSON.stringify({serverPublicKey: server.publicKey.toString('hex')}),

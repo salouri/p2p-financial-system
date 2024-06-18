@@ -41,7 +41,7 @@ export const sendTransactionRequest = async (client, transactionInfo) => {
     console.log('Sending Transaction...');
     const sendTransactionRes = await client.request(
       'sendTransaction',
-      Buffer.from(JSON.stringify({transactionInfo})),
+      Buffer.from(JSON.stringify({...transactionInfo})),
     );
     const parsedRes = JSON.parse(sendTransactionRes.toString());
     const {status, transaction, index} = parsedRes;

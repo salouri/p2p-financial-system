@@ -17,22 +17,21 @@ export async function startServer(storageDir) {
   const dht = new DHT({port: 40001, keyPair, bootstrap: bootstrapNodes});
   await dht.ready();
 
-  const rpc = new RPC({dht, keyPair}); // can take {dht, keyPair}
+  const rpc = new RPC({dht, keyPair});
 
   const server = rpc.createServer();
   await server.listen();
 
   const serverPublicKey = server.publicKey.toString('hex');
-
   console.log('Server Public Key:', serverPublicKey);
 
-  // ############## Define Server Events ##############
+  // Define Server Events
   server.on('listening', () => {
     console.log('Server is listening...');
   });
+
   server.on('close', () => {
     console.log('***** Server is closed');
-
     for (const connection of connectedPeers) {
       connection.write(
         Buffer.from(JSON.stringify({message: 'Server is shutting down.'})),
@@ -46,7 +45,6 @@ export async function startServer(storageDir) {
 
   server.on('connection', rpcClient => {
     console.log('**** Server got a new connection');
-
     connectedPeers.add(rpcClient);
     console.log('Connected RPC clients:', connectedPeers.size);
 
@@ -65,9 +63,9 @@ export async function startServer(storageDir) {
     rpcClient.on('destroy', () => {
       console.log('#### Server is destroyed');
     });
-  }); // server-connection
+  });
 
-  // ############## Define Server Responces ##############
+  // Define Server Responses
   server.respond('sendPublicKey', () => {
     return serverRespondHandler.sendPublicKey(serverPublicKey);
   });
@@ -82,7 +80,6 @@ export async function startServer(storageDir) {
 
   swarm.on('connection', (socket, info) => {
     console.log('>>>> swarm: got a new connection.');
-
     console.log(
       '>>>> remotePublicKey:',
       socket.remotePublicKey.toString('hex'),
@@ -111,7 +108,6 @@ export async function startServer(storageDir) {
     });
   });
 
-  //   const discovery = swarm.join(commonTopic, {keyPair});
   const discovery = swarm.join(commonTopic, {server: true, client: true});
   await discovery.flushed(); // once resolved, it means topic is joined
 

@@ -6,13 +6,14 @@ import {bootstrapNodes, commonTopic} from '../common/config.js';
 import handleTermination from '../common/utils/handleTermination.js';
 import peerRequestHandler from './peerRequestHandler.js';
 import registerPeerEvents from './registerPeerEvents.js';
+
 export async function startPeer(storageDir, initialServerPublicKey) {
   const swarm = new Hyperswarm();
 
   const dht = new DHT({port: 50001, bootstrap: bootstrapNodes});
   await dht.ready();
 
-  const rpc = new RPC({dht}); // can take {dht, keyPair}
+  const rpc = new RPC({dht});
 
   swarm.on('connection', async (connection, peerInfo) => {
     console.log('>>>> swarm: got a new connection.');
@@ -23,10 +24,12 @@ export async function startPeer(storageDir, initialServerPublicKey) {
     connection.on('error', err => {
       console.error('RPC Connection error:', err);
     });
+
     connection.on('data', async data => {
       console.log('Received data from peer:', data.toString());
       const {serverPublicKey} = JSON.parse(data.toString());
       console.log('serverPublicKey:', serverPublicKey);
+
       if (serverPublicKey) {
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
         registerPeerEvents(client);
@@ -36,14 +39,14 @@ export async function startPeer(storageDir, initialServerPublicKey) {
           input: process.stdin,
           output: process.stdout,
         });
+
         rl.on('line', async input => {
           const [command, ...jsonData] = input.split(' ');
           try {
             const data = JSON.parse(jsonData?.join(' ') || '{}');
-
             if (command === 'send') {
               const {sender, receiver, amount} = data;
-              await peerRequestHandler.getTransaction(client, {
+              await peerRequestHandler.sendTransaction(client, {
                 sender,
                 receiver,
                 amount,
@@ -65,9 +68,8 @@ export async function startPeer(storageDir, initialServerPublicKey) {
   });
 
   const discovery = swarm.join(commonTopic, {server: false, client: true});
-  await discovery.flushed(); // Waits for the swarm to connect to pending peers.
+  await discovery.flushed();
 
   console.log('Peer is running');
-
   handleTermination(swarm);
 }

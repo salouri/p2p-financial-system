@@ -1,10 +1,11 @@
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
+import readline from 'readline';
 import {bootstrapNodes, commonTopic} from '../common/config.js';
 import handleTermination from '../common/utils/handleTermination.js';
+import peerRequestHandler from './peerRequestHandler.js';
 import registerPeerEvents from './registerPeerEvents.js';
-
 export async function startPeer(storageDir, initialServerPublicKey) {
   const swarm = new Hyperswarm();
 
@@ -30,34 +31,35 @@ export async function startPeer(storageDir, initialServerPublicKey) {
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
         registerPeerEvents(client);
 
-        // send transaction requestion
-        let transIndex = null;
-        try {
-          const sendArgs = {sender: 'Alice', receiver: 'Bob', amount: 100};
-          const sendRes = await client.request(
-            'sendTransaction',
-            Buffer.from(JSON.stringify(sendArgs)),
-          );
-          console.log('Transaction sent:', JSON.parse(sendRes.toString()));
-          transIndex = JSON.parse(sendRes.toString()).index;
-        } catch (error) {
-          console.error('Error sending transaction:', error);
-        }
-
-        if (transIndex != null) {
+        // Read from stdin
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
+        rl.on('line', async input => {
+          const [command, ...jsonData] = input.split(' ');
           try {
-            const getResponse = await client.request(
-              'getTransaction',
-              Buffer.from(JSON.stringify({index: transIndex})),
-            );
-            console.log(
-              'Transaction received:',
-              JSON.parse(getResponse.toString()),
-            );
+            const data = JSON.parse(jsonData.join(' '));
+
+            if (command === 'send') {
+              const {sender, receiver, amount} = data;
+              await peerRequestHandler.getTransaction(client, {
+                sender,
+                receiver,
+                amount,
+              });
+            } else if (command === 'get') {
+              const {index} = data;
+              await peerRequestHandler.getTransaction(client, index);
+            } else if (command === 'sendPublicKey') {
+              await peerRequestHandler.sendPublicKey(client);
+            } else {
+              console.error('Invalid command');
+            }
           } catch (error) {
-            console.error('Error getting transaction:', error);
+            console.error('Error processing command:', error);
           }
-        }
+        });
       }
     });
   });

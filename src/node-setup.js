@@ -16,7 +16,7 @@ import {
   sendPublicKeyRespond,
   sendTransactionRespond,
 } from './server/serverRespondHandler.js';
-import {createCoreAndBee} from './server/utils/createCoreAndBee.js';
+import createCoreAndBee from './server/utils/createCoreAndBee.js';
 import registerSocketEvents from './server/utils/registerSocketEvents.js';
 
 const connectedPeers = new Set();

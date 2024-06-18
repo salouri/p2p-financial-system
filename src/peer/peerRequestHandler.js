@@ -31,7 +31,12 @@ export const getTransactionRequest = async (client, index) => {
   }
 };
 
-export const sendTransactionRequest = async (client, transactionInfo) => {
+export const sendTransactionRequest = async (
+  client,
+  transactionInfo,
+  core,
+  db,
+) => {
   const {sender, receiver, amount} = transactionInfo;
   if (!sender || !receiver || !amount) {
     console.error('Invalid sendTransaction command');
@@ -46,20 +51,7 @@ export const sendTransactionRequest = async (client, transactionInfo) => {
     const parsedRes = JSON.parse(sendTransactionRes.toString());
     const {status, transaction, index} = parsedRes;
     console.log('Transaction sent: ', parsedRes);
-    const logRecord = JSON.stringify({
-      type: 'transaction',
-      value: transaction,
-    });
-    await core.append(logRecord);
-    if (db) {
-      try {
-        const transactionKey = transaction.timeStamp.toString();
-        const transactionValue = transaction;
-        await db.put(transactionKey, transactionValue);
-      } catch (error) {
-        console.error(error);
-      }
-    }
+
     return parsedRes;
   } catch (error) {
     console.error('Error sending transaction:', error);

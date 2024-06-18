@@ -44,9 +44,9 @@ export const sendTransactionRequest = async (client, transactionInfo) => {
       Buffer.from(JSON.stringify({transactionInfo})),
     );
     const parsedRes = JSON.parse(sendTransactionRes.toString());
-    const {success} = parsedRes;
-    console.log('Transaction sent: ', success);
-    return success;
+    const {status, transaction, index} = parsedRes;
+    console.log('Transaction sent: ', parsedRes);
+    return parsedRes;
   } catch (error) {
     console.error('Error sending transaction:', error);
   }

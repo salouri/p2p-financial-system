@@ -39,7 +39,7 @@ export async function startPeer(storageDir, initialServerPublicKey) {
         rl.on('line', async input => {
           const [command, ...jsonData] = input.split(' ');
           try {
-            const data = JSON.parse(jsonData.join(' '));
+            const data = JSON.parse(jsonData?.join(' ') || '{}');
 
             if (command === 'send') {
               const {sender, receiver, amount} = data;

@@ -1,3 +1,4 @@
+// peer-setup.js
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
@@ -33,12 +34,10 @@ export async function startPeer(storageDir, initialServerPublicKey) {
     connection.on('error', err => {
       console.error('RPC Connection error:', err);
     });
-
     connection.on('data', async data => {
       console.log('Received data from peer:', data.toString());
       const {serverPublicKey} = JSON.parse(data.toString());
       console.log('serverPublicKey:', serverPublicKey);
-
       if (serverPublicKey) {
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
         registerPeerEvents(client);
@@ -53,6 +52,7 @@ export async function startPeer(storageDir, initialServerPublicKey) {
           const [command, ...jsonData] = input.split(' ');
           try {
             const data = JSON.parse(jsonData?.join(' ') || '{}');
+
             if (command === 'send') {
               const {sender, receiver, amount} = data;
               await sendTransactionRequest(client, {
@@ -77,8 +77,9 @@ export async function startPeer(storageDir, initialServerPublicKey) {
   });
 
   const discovery = swarm.join(commonTopic, {server: false, client: true});
-  await discovery.flushed();
+  await discovery.flushed(); // Waits for the swarm to connect to pending peers.
 
   console.log('Peer is running');
+
   handleTermination(swarm);
 }

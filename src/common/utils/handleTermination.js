@@ -1,10 +1,21 @@
-export default function handleTermination(swarm) {
-  function gracefulShutdown() {
+export default async function handleTermination(swarm, core, db) {
+  async function gracefulShutdown() {
+    try {
+      if (core) await core.close();
+      if (db) await db.close();
+    } catch (error) {
+      console.error('Error closing core or db:', error);
+    }
+
+    // on
     swarm.once('close', function () {
       process.exit();
     });
+
     swarm.destroy();
-    setTimeout(() => process.exit(), 2000);
+
+    // Ensure exit if swarm doesn't close in time
+    setTimeout(() => process.exit(), 1000);
   }
 
   // Handle SIGINT (Ctrl+C)

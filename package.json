@@ -17,5 +17,8 @@
     "hypercore": "^10.37.7",
     "hyperdht": "^6.15.1",
     "hyperswarm": "^4.7.15"
+  },
+  "devDependencies": {
+    "fs-extra": "^11.2.0"
   }
 }

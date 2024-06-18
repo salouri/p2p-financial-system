@@ -1,4 +1,5 @@
-export const sendTransactionRespond = async (req, core) => {
+export const sendTransactionRespond = async (req, core, db) => {
+  let response;
   try {
     const data = JSON.parse(req.toString());
     console.log('Transaction Info:', data);
@@ -9,14 +10,29 @@ export const sendTransactionRespond = async (req, core) => {
       value: transaction,
     });
     await core.append(logRecord);
-    return {status: true, transaction, index: core.length - 1};
+    if (db) {
+      try {
+        const transactionKey = transaction.timeStamp.toString();
+        const transactionValue = transaction;
+        await db.put(transactionKey, transactionValue);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    response = {
+      status: true,
+      transaction: {...transaction},
+      index: core.length - 1,
+    };
   } catch (error) {
     console.error('Error sending transaction:', error);
-    return {status: false, error: error.message};
+    response = {status: false, error: error.message};
   }
+  return Buffer.from(JSON.stringify(response));
 };
 
 export const getTransactionRespond = async (req, core) => {
+  let response;
   try {
     console.log(
       'Received request for transaction:',
@@ -25,20 +41,20 @@ export const getTransactionRespond = async (req, core) => {
     const {index} = JSON.parse(req.toString());
     console.log('index: ', index);
     const dataBuffer = await core.get(index);
-    const data = JSON.parse(dataBuffer.toString());
+    response = JSON.parse(dataBuffer.toString());
     console.log('Retrieved transaction:', data);
-    return data;
   } catch (error) {
     console.error('Error getting transaction:', error);
-    return {status: false, error: error.message};
+    response = {status: false, error: error.message};
   }
+  return Buffer.from(JSON.stringify(response));
 };
 
 export const sendPublicKeyRespond = publicKey => {
   console.log('Received request for sending public key');
 
-  console.log('Sending public key:', publicKey);
-  return {publicKey};
+  console.log(`Sending public key: ${publicKey.substring(0, 10)}...`);
+  return Buffer.from(JSON.stringify({publicKey}));
 };
 
 export default {

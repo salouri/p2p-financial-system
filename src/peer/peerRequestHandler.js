@@ -1,13 +1,13 @@
 export const sendPublicKeyRequest = async client => {
   try {
-    console.log('Requesting Server-Public-Key...');
+    console.log('Requesting Peer-Public-Key...');
     const response = await client.request('sendPublicKey', Buffer.alloc(0));
     const parsedRes = JSON.parse(response?.toString() || '{}');
     const {publicKey} = parsedRes;
-    console.log('Server Public Key: ', publicKey);
+    console.log('Peer Public Key: ', publicKey);
     return publicKey;
   } catch (error) {
-    console.error('Error receiving server public key:', error);
+    console.error('Error receiving peer public key:', error);
   }
 };
 
@@ -46,6 +46,20 @@ export const sendTransactionRequest = async (client, transactionInfo) => {
     const parsedRes = JSON.parse(sendTransactionRes.toString());
     const {status, transaction, index} = parsedRes;
     console.log('Transaction sent: ', parsedRes);
+    const logRecord = JSON.stringify({
+      type: 'transaction',
+      value: transaction,
+    });
+    await core.append(logRecord);
+    if (db) {
+      try {
+        const transactionKey = transaction.timeStamp.toString();
+        const transactionValue = transaction;
+        await db.put(transactionKey, transactionValue);
+      } catch (error) {
+        console.error(error);
+      }
+    }
     return parsedRes;
   } catch (error) {
     console.error('Error sending transaction:', error);

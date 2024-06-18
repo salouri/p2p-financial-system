@@ -2,7 +2,11 @@ import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
 import readline from 'readline';
-import {bootstrapNodes, commonTopic} from '../common/config.js';
+import {
+  bootstrapNodes,
+  commonTopic,
+  generateKeyPair,
+} from '../common/config.js';
 import handleTermination from '../common/utils/handleTermination.js';
 import peerRequestHandler from './peerRequestHandler.js';
 import registerPeerEvents from './registerPeerEvents.js';
@@ -10,10 +14,11 @@ import registerPeerEvents from './registerPeerEvents.js';
 export async function startPeer(storageDir, initialServerPublicKey) {
   const swarm = new Hyperswarm();
 
-  const dht = new DHT({port: 50001, bootstrap: bootstrapNodes});
+  const keyPair = generateKeyPair();
+  const dht = new DHT({keyPair, bootstrap: bootstrapNodes});
   await dht.ready();
 
-  const rpc = new RPC({dht});
+  const rpc = new RPC({dht, keyPair});
 
   swarm.on('connection', async (connection, peerInfo) => {
     console.log('>>>> swarm: got a new connection.');

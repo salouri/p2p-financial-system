@@ -1,7 +1,7 @@
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
-import {bootstrapNodes, commonTopic, keyPair} from '../common/config.js';
+import {bootstrapNodes, commonTopic} from '../common/config.js';
 import handleTermination from '../common/utils/handleTermination.js';
 import serverRespondHandler from './serverRespondHandler.js';
 import {createCoreAndBee} from './utils/createCoreAndBee.js';
@@ -14,7 +14,8 @@ export async function startServer(storageDir) {
 
   const {core} = await createCoreAndBee(storageDir, 'json');
 
-  const dht = new DHT({port: 40001, keyPair, bootstrap: bootstrapNodes});
+  const keyPair = generateKeyPair();
+  const dht = new DHT({keyPair, bootstrap: bootstrapNodes});
   await dht.ready();
 
   const rpc = new RPC({dht, keyPair});

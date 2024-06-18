@@ -52,13 +52,13 @@ export async function startServer(storageDir) {
 
     rpcClient.on('close', () => {
       console.log('#### RPC connection closed');
-
-      const peerPublicKeyStr = rpcClient?.remotePublicKey.toString('hex');
+      const peerPublicKeyStr = rpcClient?.remotePublicKey?.toString('hex');
       connectedPeers.delete(rpcClient);
 
-      console.log(
-        `#### connection removed: ${peerPublicKeyStr.substring(0, 15)}...`,
-      );
+      if (peerPublicKeyStr)
+        console.log(
+          `#### connection removed: ${peerPublicKeyStr?.substring(0, 15)}...`,
+        );
       console.log('#### Connected RPC clients:', connectedPeers.size);
     });
 
@@ -68,9 +68,9 @@ export async function startServer(storageDir) {
   }); // server-connection
 
   // ############## Define Server Responces ##############
-  server.respond('sendPublicKey', serverPublicKey =>
-    serverRespondHandler.sendPublicKey(serverPublicKey),
-  );
+  server.respond('sendPublicKey', () => {
+    return serverRespondHandler.sendPublicKey(serverPublicKey);
+  });
 
   server.respond('sendTransaction', async req => {
     return await serverRespondHandler.sendTransaction(req, core);
@@ -99,15 +99,15 @@ export async function startServer(storageDir) {
     const peerRpc = rpc.connect(socket.publicKey);
 
     peerRpc.on('open', () => {
-      console.log('++++ Server-side RPC connection opened');
+      console.log('++++ Peer  connection opened');
     });
 
     peerRpc.on('close', () => {
-      console.log('++++ Server-side RPC connection closed');
+      console.log('++++ Peer  connection closed');
     });
 
     peerRpc.on('destroy', () => {
-      console.log('++++ Server-side RPC connection destroyed:');
+      console.log('++++ Peer  connection destroyed:');
     });
   });
 

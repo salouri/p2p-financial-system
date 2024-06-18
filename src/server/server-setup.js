@@ -12,7 +12,7 @@ import {
   sendPublicKeyRespond,
   sendTransactionRespond,
 } from './serverRespondHandler.js';
-import {createCoreAndBee} from './utils/createCoreAndBee.js';
+import { createCoreAndBee } from './utils/createCoreAndBee.js';
 import registerSocketEvents from './utils/registerSocketEvents.js';
 
 const connectedPeers = new Set();

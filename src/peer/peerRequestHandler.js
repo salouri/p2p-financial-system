@@ -1,4 +1,4 @@
-const sendPublicKey = async client => {
+export const sendPublicKeyRequest = async client => {
   try {
     console.log('Requesting Server-Public-Key...');
     const response = await client.request('sendPublicKey', Buffer.alloc(0));
@@ -11,8 +11,8 @@ const sendPublicKey = async client => {
   }
 };
 
-const getTransaction = async (client, index) => {
-  if (!index) {
+export const getTransactionRequest = async (client, index) => {
+  if (index === undefined) {
     console.error('Invalid getTransaction command');
     return;
   }
@@ -23,7 +23,7 @@ const getTransaction = async (client, index) => {
       Buffer.from(JSON.stringify({index})),
     );
     const parsedRes = JSON.parse(getTransactionRes.toString());
-    const {transaction} = parsedRes;
+    const transaction = parsedRes.value;
     console.log('Transaction: ', transaction);
     return transaction;
   } catch (error) {
@@ -31,7 +31,7 @@ const getTransaction = async (client, index) => {
   }
 };
 
-const sendTransaction = async (client, transactionInfo) => {
+export const sendTransactionRequest = async (client, transactionInfo) => {
   const {sender, receiver, amount} = transactionInfo;
   if (!sender || !receiver || !amount) {
     console.error('Invalid sendTransaction command');
@@ -53,7 +53,7 @@ const sendTransaction = async (client, transactionInfo) => {
 };
 
 export default {
-  sendTransaction,
-  getTransaction,
-  sendPublicKey,
+  sendTransactionRequest,
+  getTransactionRequest,
+  sendPublicKeyRequest,
 };

@@ -1,4 +1,4 @@
-import peerRequestHandler from './peerRequestHandler.js';
+import {sendPublicKeyRequest} from './peerRequestHandler.js';
 
 export default function registerPeerEvents(client) {
   client.on('destroy', () => {
@@ -11,6 +11,6 @@ export default function registerPeerEvents(client) {
 
   client.on('open', async () => {
     console.log('++++ Peer connection opened');
-    await peerRequestHandler.sendPublicKey(client);
+    await sendPublicKeyRequest(client);
   });
 }

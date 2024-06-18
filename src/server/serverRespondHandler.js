@@ -1,4 +1,4 @@
-export const sendTransaction = async (req, core) => {
+export const sendTransactionRespond = async (req, core) => {
   try {
     const data = JSON.parse(req.toString());
     console.log('Received transaction-data:', data);
@@ -18,7 +18,7 @@ export const sendTransaction = async (req, core) => {
   }
 };
 
-export const getTransaction = async (req, core) => {
+export const getTransactionRespond = async (req, core) => {
   try {
     console.log(
       'Received request for transaction:',
@@ -36,7 +36,7 @@ export const getTransaction = async (req, core) => {
   }
 };
 
-export const sendPublicKey = publicKey => {
+export const sendPublicKeyRespond = publicKey => {
   console.log('Received request for sending public key');
 
   console.log('Sending public key:', publicKey);
@@ -44,7 +44,7 @@ export const sendPublicKey = publicKey => {
 };
 
 export default {
-  sendTransaction,
-  getTransaction,
-  sendPublicKey,
+  sendTransactionRespond,
+  getTransactionRespond,
+  sendPublicKeyRespond,
 };

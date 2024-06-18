@@ -7,7 +7,11 @@ import {
   generateKeyPair,
 } from '../common/config.js';
 import handleTermination from '../common/utils/handleTermination.js';
-import serverRespondHandler from './serverRespondHandler.js';
+import {
+  getTransactionRespond,
+  sendPublicKeyRespond,
+  sendTransactionRespond,
+} from './serverRespondHandler.js';
 import {createCoreAndBee} from './utils/createCoreAndBee.js';
 import registerSocketEvents from './utils/registerSocketEvents.js';
 
@@ -72,15 +76,15 @@ export async function startServer(storageDir) {
 
   // Define Server Responses
   server.respond('sendPublicKey', () => {
-    return serverRespondHandler.sendPublicKey(serverPublicKey);
+    return sendPublicKeyRespond(serverPublicKey);
   });
 
   server.respond('sendTransaction', async req => {
-    return await serverRespondHandler.sendTransaction(req, core);
+    return await sendTransactionRespond(req, core);
   });
 
   server.respond('getTransaction', async req => {
-    return await serverRespondHandler.getTransaction(req, core);
+    return await getTransactionRespond(req, core);
   });
 
   swarm.on('connection', (socket, info) => {

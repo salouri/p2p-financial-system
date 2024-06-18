@@ -8,7 +8,11 @@ import {
   generateKeyPair,
 } from '../common/config.js';
 import handleTermination from '../common/utils/handleTermination.js';
-import peerRequestHandler from './peerRequestHandler.js';
+import {
+  getTransactionRequest,
+  sendPublicKeyRequest,
+  sendTransactionRequest,
+} from './peerRequestHandler.js';
 import registerPeerEvents from './registerPeerEvents.js';
 
 export async function startPeer(storageDir, initialServerPublicKey) {
@@ -51,16 +55,16 @@ export async function startPeer(storageDir, initialServerPublicKey) {
             const data = JSON.parse(jsonData?.join(' ') || '{}');
             if (command === 'send') {
               const {sender, receiver, amount} = data;
-              await peerRequestHandler.sendTransaction(client, {
+              await sendTransactionRequest(client, {
                 sender,
                 receiver,
                 amount,
               });
             } else if (command === 'get') {
               const {index} = data;
-              await peerRequestHandler.getTransaction(client, index);
+              await getTransactionRequest(client, index);
             } else if (command === 'sendPublicKey') {
-              await peerRequestHandler.sendPublicKey(client);
+              await sendPublicKeyRequest(client);
             } else {
               console.error('Invalid command');
             }

@@ -6,9 +6,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Function to initialize a Hyperbee instance
-export async function initializeDb({
+export default async function initializeDb({
   storageDir,
-  keyPair,
+  keyPair = null,
   valueEncoding = 'json',
 }) {
   if (!keyPair) {

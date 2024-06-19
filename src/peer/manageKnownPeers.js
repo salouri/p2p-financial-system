@@ -16,7 +16,6 @@ export function loadKnownPeers(storageDir, keyPair) {
 
 export const saveKnownPeers = (storageDir, peers) => {
   const filePath = path.join(storageDir, FILE_NAME);
-  set(publicKey, {client, timestamp: Date.now()});
 
   const prunedPeers = peers.map(peer => {
     publicKey: peer.publicKey;

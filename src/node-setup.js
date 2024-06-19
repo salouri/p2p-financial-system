@@ -1,33 +1,30 @@
-// node-setup.js
+// src/node-setup.js
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
 import readline from 'readline';
 import {bootstrapNodes, commonTopic, generateKeyPair} from './common/config.js';
 import handleTermination from './common/utils/handleTermination.js';
-import {
-  getTransactionRequest,
-  sendPublicKeyRequest,
-  sendTransactionRequest,
-} from './peer/peerRequestHandler.js';
+import {initializeDb} from './common/utils/initializeDb.js';
+import requestHandlers from './peer/peerRequestHandler.js';
+import respondHandlers from './server/serverRespondHandler.js';
 import registerPeerEvents from './peer/registerPeerEvents.js';
-import {
-  getTransactionRespond,
-  sendPublicKeyRespond,
-  sendTransactionRespond,
-} from './server/serverRespondHandler.js';
-import createCoreAndBee from './server/utils/createCoreAndBee.js';
-import registerSocketEvents from './server/utils/registerSocketEvents.js';
+import registerSocketEvents from './server/registerSocketEvents.js';
+import retrieveKnownPeers from './common/utils/retrieveKnownPeers.js';
 
 const connectedPeers = new Set();
 
 export async function startNode(storageDir) {
   const swarm = new Hyperswarm();
   const keyPair = generateKeyPair();
+  const {knownPeers, knownPeersDb} = await retrieveKnownPeers(
+    storageDir,
+    keyPair,
+  );
   const dht = new DHT({keyPair, bootstrap: bootstrapNodes});
   await dht.ready();
 
-  const {core, db} = await createCoreAndBee(storageDir, 'json');
+  const {core, db} = await initializeDb({storageDir}); // uses shared keyPair
   const rpc = new RPC({dht, keyPair});
 
   const server = rpc.createServer();
@@ -56,11 +53,14 @@ export async function startNode(storageDir) {
     process.exit();
   });
 
-  server.on('connection', rpcClient => {
+  server.on('connection', async rpcClient => {
     console.log('Server got a new connection');
     connectedPeers.add(rpcClient);
     console.log('Connected RPC clients:', connectedPeers.size);
+    const remotePublicKey = rpcClient.publicKey.toString('hex');
+    await knownPeersDb.put(remotePublicKey, {timestamp: Date.now()});
 
+    // Handle RPC client events
     rpcClient.on('close', () => {
       connectedPeers.delete(rpcClient);
       console.log('Connection closed, total connections:', connectedPeers.size);
@@ -72,13 +72,15 @@ export async function startNode(storageDir) {
   });
 
   // Define Server Responses
-  server.respond('sendPublicKey', () => sendPublicKeyRespond(serverPublicKey));
+  server.respond('sendPublicKey', () =>
+    respondHandlers.sendPublicKeyRespond(serverPublicKey),
+  );
   server.respond('sendTransaction', async req =>
-    sendTransactionRespond(req, core, db),
+    respondHandlers.sendTransactionRespond(req, core, db),
   );
   server.respond(
     'getTransaction',
-    async req => await getTransactionRespond(req, core),
+    async req => await respondHandlers.getTransactionRespond(req, core),
   );
 
   // Handle Swarm events
@@ -90,9 +92,7 @@ export async function startNode(storageDir) {
     registerSocketEvents(socket);
 
     const rpcPeer = rpc.connect(socket.publicKey);
-    rpcPeer.on('open', () => console.log('Peer  connection opened'));
-    rpcPeer.on('close', () => console.log('Peer  connection closed'));
-    rpcPeer.on('destroy', () => console.log('Peer  connection destroyed'));
+    registerPeerEvents(rpcPeer, connectedPeers);
 
     socket.on('data', async serverData => {
       console.log(
@@ -102,7 +102,7 @@ export async function startNode(storageDir) {
       const {serverPublicKey} = JSON.parse(serverData.toString());
       if (serverPublicKey) {
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
-        registerPeerEvents(client);
+        registerPeerEvents(client, connectedPeers);
 
         // Read from stdin
         const rl = readline.createInterface({
@@ -117,7 +117,7 @@ export async function startNode(storageDir) {
 
             if (command === 'send') {
               const {sender, receiver, amount} = data;
-              await sendTransactionRequest(
+              await requestHandlers.sendTransactionRequest(
                 client,
                 {
                   sender,
@@ -129,9 +129,9 @@ export async function startNode(storageDir) {
               );
             } else if (command === 'get') {
               const {index} = data;
-              await getTransactionRequest(client, index);
+              await requestHandlers.getTransactionRequest(client, index);
             } else if (command === 'sendPublicKey') {
-              await sendPublicKeyRequest(client);
+              await requestHandlers.sendPublicKeyRequest(client);
             } else {
               console.error('Invalid command');
             }
@@ -146,6 +146,20 @@ export async function startNode(storageDir) {
   const discovery = swarm.join(commonTopic, {server: true, client: true});
   await discovery.flushed(); // once resolved, it means topic is joined
   console.log('Node is running');
+
+  // Connect to known peers
+  knownPeers.forEach(({publicKey}) => {
+    try {
+      const peerKeyBuffer = Buffer.from(publicKey, 'hex');
+      const peerRpc = rpc.connect(peerKeyBuffer);
+      registerPeerEvents(peerRpc, connectedPeers);
+    } catch (error) {
+      console.error(
+        `Failed to connect to known peer with publicKey ${publicKey}:`,
+        error,
+      );
+    }
+  });
 
   handleTermination(swarm, core, db);
 }

@@ -1,3 +1,4 @@
+// common/utils/initializeDb.js
 import Hyperbee from 'hyperbee';
 import Hypercore from 'hypercore';
 import dotenv from 'dotenv';

@@ -4,7 +4,7 @@ export const sendPublicKeyRequest = async client => {
     const response = await client.request('sendPublicKey', Buffer.alloc(0));
     const parsedRes = JSON.parse(response?.toString() || '{}');
     const {publicKey} = parsedRes;
-    console.log('Peer Public Key: ', publicKey);
+    console.log('Received Peer Public Key: ', publicKey);
     return publicKey;
   } catch (error) {
     console.error('Error receiving peer public key:', error);
@@ -58,8 +58,18 @@ export const sendTransactionRequest = async (
   }
 };
 
+export const notifyPeersRequest = async (peers, message) => {
+  for (const {client} of peers) {
+    try {
+      client.event('notifyPeers', Buffer.from(JSON.stringify({message})));
+    } catch (error) {
+      console.error('Error notifying peer:', error);
+    }
+  }
+};
 export default {
   sendTransactionRequest,
   getTransactionRequest,
   sendPublicKeyRequest,
+  notifyPeersRequest,
 };

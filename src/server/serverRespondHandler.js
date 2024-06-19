@@ -57,8 +57,13 @@ export const sendPublicKeyRespond = publicKey => {
   return Buffer.from(JSON.stringify({publicKey}));
 };
 
+export const notifyPeersRespond = req => {
+  const {message} = JSON.parse(req.toString());
+  console.log('>>> Notificaiton received! \n Message: ', message);
+};
 export default {
   sendTransactionRespond,
   getTransactionRespond,
   sendPublicKeyRespond,
+  notifyPeersRespond,
 };

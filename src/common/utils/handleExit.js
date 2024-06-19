@@ -1,3 +1,4 @@
+// common/utils/handleExit.js
 import {notifyPeersRequest} from '../../peer/peerRequestHandler.js';
 import {saveKnownPeers} from '../../peer/manageKnownPeers.js';
 export default async function handleExit({

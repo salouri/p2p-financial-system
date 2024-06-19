@@ -8,7 +8,7 @@ import {
   commonTopic,
   generateKeyPair,
 } from './common/config/config.js';
-import handleExit from './common/utils/handleExitjs';
+import handleExit from './common/utils/handleExit.js';
 import {initializeDb} from './common/utils/initializeDb.js';
 import requestHandlers from './peer/peerRequestHandler.js';
 import respondHandlers from './server/serverRespondHandler.js';

@@ -8,23 +8,20 @@ import {
   commonTopic,
   generateKeyPair,
 } from './common/config/config.js';
-import handleTermination from './common/utils/handleTermination.js';
+import handleExit from './common/utils/handleExitjs';
 import {initializeDb} from './common/utils/initializeDb.js';
 import requestHandlers from './peer/peerRequestHandler.js';
 import respondHandlers from './server/serverRespondHandler.js';
 import registerPeerEvents from './peer/registerPeerEvents.js';
 import registerSocketEvents from './server/registerSocketEvents.js';
-import retrieveKnownPeers from './common/utils/retrieveKnownPeers.js';
-import getClientPublicKey from './peer/getClientPublicKey.js';
 
-const connectedPeers = new Map();
+const connectedPeers = {
+  bidders: new Map(),
+  sellers: new Map(),
+};
 
-export async function startNode(storageDir) {
+export async function startNode(storageDir, knownPeers = null) {
   const swarm = new Hyperswarm();
-  const {knownPeers, knownPeersDb} = await retrieveKnownPeers(
-    storageDir,
-    generateKeyPair(),
-  );
 
   const keyPair = generateKeyPair();
   const dht = new DHT({keyPair, bootstrap: bootstrapNodes});
@@ -45,36 +42,20 @@ export async function startNode(storageDir) {
 
   server.on('close', () => {
     console.log('Server is closed');
-    // notify all connected peers and close all connections
-    for (const peer of connectedPeers.values()) {
-      peer.write(
-        Buffer.from(JSON.stringify({message: 'Server is shutting down.'})),
-      );
-      peer.client.destroy();
+    // Notify all connected peers and close all connections
+    const allPeers = getAllPeers(connectedPeers);
+    requestHandlers.notifyPeersRequest(allPeers, 'Server is shutting down.');
+    for (const {client} of allPeers) {
+      client.destroy();
     }
     swarm.destroy();
     console.log('All connections closed and swarm destroyed.');
     process.exit();
   });
-
+  // when other nodes (as bidders) connecting to this current one (seller)
   server.on('connection', async rpcClient => {
-    console.log('Server got a new connection');
-    // get the peer's public key
-    const remotePublicKey = getClientPublicKey(rpcClient);
-    connectedPeers.set(remotePublicKey, {timestamp: Date.now()});
-    await knownPeersDb.put(remotePublicKey, {timestamp: Date.now()});
-
-    console.log('Connected RPC clients:', connectedPeers.size);
-
-    // Handle RPC client events
-    rpcClient.on('close', () => {
-      connectedPeers.delete(remotePublicKey);
-      console.log('Connection closed, total connections:', connectedPeers.size);
-    });
-
-    rpcClient.on('destroy', () => {
-      console.log('RPC connection destroyed');
-    });
+    console.log('Server received a new connection');
+    registerPeerEvents(rpcClient, connectedPeers, 'bidders');
   });
 
   // Define Server Responses
@@ -87,6 +68,10 @@ export async function startNode(storageDir) {
   server.respond(
     'getTransaction',
     async req => await respondHandlers.getTransactionRespond(req, core),
+  );
+  server.respond(
+    'notifyPeers',
+    async req => await respondHandlers.notifyPeersRespond(req),
   );
 
   // Handle Swarm events
@@ -104,8 +89,9 @@ export async function startNode(storageDir) {
       );
       const {serverPublicKey} = JSON.parse(serverData.toString());
       if (serverPublicKey) {
+        // when this node (as a bidder) connecting to other nodes (sellers)
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
-        registerPeerEvents(client, connectedPeers);
+        registerPeerEvents(client, connectedPeers, 'sellers');
 
         const rl = readline.createInterface({
           input: process.stdin,
@@ -115,10 +101,15 @@ export async function startNode(storageDir) {
         rl.on('line', async input => {
           const [command, ...jsonData] = input.split(' ');
           try {
-            const dataStr = jsonData.join(' ');
-            const data = JSON.parse(
-              dataStr.replace(/([a-zA-Z0-9_]+?):/g, '"$1":').replace(/'/g, '"'),
-            );
+            let data = {};
+            if (jsonData.length > 0) {
+              const dataStr = jsonData.join(' ');
+              const data = JSON.parse(
+                dataStr
+                  .replace(/([a-zA-Z0-9_]+?):/g, '"$1":')
+                  .replace(/'/g, '"'),
+              );
+            }
 
             if (command === 'send') {
               const {sender, receiver, amount} = data;
@@ -133,6 +124,11 @@ export async function startNode(storageDir) {
               await requestHandlers.getTransactionRequest(client, index);
             } else if (command === 'sendPublicKey') {
               await requestHandlers.sendPublicKeyRequest(client);
+            } else if (command === 'notifyPeers') {
+              const allPeers = getAllPeers(connectedPeers);
+              const message = data?.message || 'Broadcast message to all peers';
+              requestHandlers.notifyPeersRequest(allPeers, message);
+              console.log(`Broadcasted to connected peers: "${message}"`);
             } else {
               console.error('Invalid command');
             }
@@ -148,14 +144,16 @@ export async function startNode(storageDir) {
   await discovery.flushed(); // once resolved, it means topic is joined
 
   // Connect to known peers
-  for (const peer of knownPeers) {
-    const {publicKey} = peer;
-    const peerKeyBuffer = Buffer.from(publicKey, 'hex');
-    if (!connectedPeers.has(peerKeyBuffer)) {
+  if (knownPeers) {
+    const sellerPeers = knownPeers?.sellers;
+
+    for (const peer of sellerPeers) {
+      const {publicKey} = peer;
+      const peerKeyBuffer = Buffer.from(publicKey, 'hex');
       try {
         const peerKeyBuffer = Buffer.from(publicKey, 'hex');
         const peerRpc = rpc.connect(peerKeyBuffer);
-        registerPeerEvents(peerRpc, connectedPeers);
+        registerPeerEvents(peerRpc, connectedPeers, 'sellers');
       } catch (error) {
         console.error(
           `Failed to connect to known peer with publicKey ${publicKey}:`,
@@ -166,6 +164,20 @@ export async function startNode(storageDir) {
   }
 
   console.log('Node is running');
+  const allPeers = getAllPeers(connectedPeers);
+  handleExit({swarm, core, db, storageDir, allPeers});
+}
 
-  handleTermination(swarm, core, db);
+function getAllPeers(connectedPeers) {
+  const allPeers = new Set();
+
+  for (const peer of connectedPeers['bidders'].values()) {
+    allPeers.add(peer);
+  }
+
+  for (const peer of connectedPeers['sellers'].values()) {
+    allPeers.add(peer);
+  }
+
+  return Array.from(allPeers);
 }

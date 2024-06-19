@@ -10,7 +10,7 @@ async function retrieveKnownPeers(storageDir, keyPair) {
 
   const knownPeers = [];
   for await (const {key, value} of knownPeersDb.createReadStream()) {
-    peers.push({publicKey: key, ...value});
+    knownPeers.push({publicKey: key, ...value});
   }
   console.log('knownPeers: ', knownPeers);
   return {knownPeers, knownPeersDb};

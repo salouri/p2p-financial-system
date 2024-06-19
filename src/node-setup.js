@@ -1,4 +1,4 @@
-// src/node-setup.js
+// node-setup.js
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
@@ -16,11 +16,12 @@ const connectedPeers = new Set();
 
 export async function startNode(storageDir) {
   const swarm = new Hyperswarm();
-  const keyPair = generateKeyPair();
   const {knownPeers, knownPeersDb} = await retrieveKnownPeers(
     storageDir,
-    keyPair,
+    generateKeyPair(),
   );
+
+  const keyPair = generateKeyPair();
   const dht = new DHT({keyPair, bootstrap: bootstrapNodes});
   await dht.ready();
 
@@ -31,8 +32,6 @@ export async function startNode(storageDir) {
   await server.listen();
   const serverPublicKey = server.publicKey.toString('hex');
   console.log('Node Public Key:', serverPublicKey);
-
-  const connectedPeers = new Set();
 
   // Handle RPC server events
   server.on('listening', () => {
@@ -57,6 +56,7 @@ export async function startNode(storageDir) {
     console.log('Server got a new connection');
     connectedPeers.add(rpcClient);
     console.log('Connected RPC clients:', connectedPeers.size);
+    // get the peer's public key
     const remotePublicKey = rpcClient.publicKey.toString('hex');
     await knownPeersDb.put(remotePublicKey, {timestamp: Date.now()});
 
@@ -104,7 +104,6 @@ export async function startNode(storageDir) {
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
         registerPeerEvents(client, connectedPeers);
 
-        // Read from stdin
         const rl = readline.createInterface({
           input: process.stdin,
           output: process.stdout,
@@ -119,11 +118,7 @@ export async function startNode(storageDir) {
               const {sender, receiver, amount} = data;
               await requestHandlers.sendTransactionRequest(
                 client,
-                {
-                  sender,
-                  receiver,
-                  amount,
-                },
+                {sender, receiver, amount},
                 core,
                 db,
               );
@@ -145,10 +140,9 @@ export async function startNode(storageDir) {
 
   const discovery = swarm.join(commonTopic, {server: true, client: true});
   await discovery.flushed(); // once resolved, it means topic is joined
-  console.log('Node is running');
 
   // Connect to known peers
-  knownPeers.forEach(({publicKey}) => {
+  for (const {publicKey} of knownPeers) {
     try {
       const peerKeyBuffer = Buffer.from(publicKey, 'hex');
       const peerRpc = rpc.connect(peerKeyBuffer);
@@ -159,7 +153,9 @@ export async function startNode(storageDir) {
         error,
       );
     }
-  });
+  }
+
+  console.log('Node is running');
 
   handleTermination(swarm, core, db);
 }

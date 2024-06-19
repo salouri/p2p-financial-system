@@ -1,7 +1,7 @@
 {
-  "name": "DecentraPay",
+  "name": "p2p-auction",
   "version": "1.0.0",
-  "description": "\"# p2p-financial-system\"",
+  "description": "\"# p2p-auction solution\"",
   "main": "index.js",
   "type": "module",
   "scripts": {

@@ -1,8 +1,20 @@
-export default async function handleTermination(swarm, core, db) {
+import {notifyPeersRequest} from '../../peer/peerRequestHandler.js';
+import {saveKnownPeers} from '../../peer/manageKnownPeers.js';
+export default async function handleExit({
+  swarm,
+  core,
+  db,
+  storageDir,
+  allPeers,
+}) {
   async function gracefulShutdown() {
     try {
       if (core) await core.close();
       if (db) await db.close();
+      if (allPeers) {
+        notifyPeersRequest(allPeers, 'Server is shutting down.');
+        saveKnownPeers(storageDir, allPeers);
+      }
     } catch (error) {
       console.error('Error closing core or db:', error);
     }

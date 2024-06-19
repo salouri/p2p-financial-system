@@ -1,7 +1,7 @@
 function getClientPublicKey(client, nodeType) {
-  if (nodeType === 'bidders' && client?._mux?.stream?.remotePublicKey) {
+  if (nodeType === 'senders' && client?._mux?.stream?.remotePublicKey) {
     return client?._mux?.stream?.remotePublicKey.toString('hex');
-  } else if (nodeType === 'sellers') {
+  } else if (nodeType === 'receivers') {
     if (client?._publicKey) {
       return client._publicKey.toString('hex');
     }
@@ -10,7 +10,9 @@ function getClientPublicKey(client, nodeType) {
     }
     throw new Error('Public key not found');
   } else {
-    throw new Error('Uknown node type! Types used are "bidders" or "sellers"');
+    throw new Error(
+      'Uknown node type! Types used are "senders" or "receivers"',
+    );
   }
 }
 

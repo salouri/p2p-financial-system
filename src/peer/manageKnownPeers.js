@@ -16,8 +16,13 @@ export function loadKnownPeers(storageDir, keyPair) {
 
 export const saveKnownPeers = (storageDir, peers) => {
   const filePath = path.join(storageDir, FILE_NAME);
+  set(publicKey, {client, timestamp: Date.now()});
 
-  fs.writeFileSync(filePath, JSON.stringify(peers, null, 2));
+  const prunedPeers = peers.map(peer => {
+    publicKey: peer.publicKey;
+    timestamp: peer.timestamp;
+  });
+  fs.writeFileSync(filePath, JSON.stringify(prunedPeers, null, 2));
 };
 
 export default {loadKnownPeers, saveKnownPeers};

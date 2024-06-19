@@ -16,8 +16,8 @@ import registerPeerEvents from './peer/registerPeerEvents.js';
 import registerSocketEvents from './server/registerSocketEvents.js';
 
 const connectedPeers = {
-  bidders: new Map(),
-  sellers: new Map(),
+  senders: new Map(),
+  receivers: new Map(),
 };
 
 export async function startNode(storageDir, knownPeers = null) {
@@ -52,10 +52,10 @@ export async function startNode(storageDir, knownPeers = null) {
     console.log('All connections closed and swarm destroyed.');
     process.exit();
   });
-  // when other nodes (as bidders) connecting to this current one (seller)
+  // when other nodes (as senders) connecting to this current one (receiver)
   server.on('connection', async rpcClient => {
     console.log('Server received a new connection');
-    registerPeerEvents(rpcClient, connectedPeers, 'bidders');
+    registerPeerEvents(rpcClient, connectedPeers, 'senders');
   });
 
   // Define Server Responses
@@ -89,9 +89,9 @@ export async function startNode(storageDir, knownPeers = null) {
       );
       const {serverPublicKey} = JSON.parse(serverData.toString());
       if (serverPublicKey) {
-        // when this node (as a bidder) connecting to other nodes (sellers)
+        // when this node (as a sender) connecting to other nodes (receivers)
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
-        registerPeerEvents(client, connectedPeers, 'sellers');
+        registerPeerEvents(client, connectedPeers, 'receivers');
 
         const rl = readline.createInterface({
           input: process.stdin,
@@ -145,15 +145,15 @@ export async function startNode(storageDir, knownPeers = null) {
 
   // Connect to known peers
   if (knownPeers) {
-    const sellerPeers = knownPeers?.sellers;
+    const receiverPeers = knownPeers?.receivers;
 
-    for (const peer of sellerPeers) {
+    for (const peer of receiverPeers) {
       const {publicKey} = peer;
       const peerKeyBuffer = Buffer.from(publicKey, 'hex');
       try {
         const peerKeyBuffer = Buffer.from(publicKey, 'hex');
         const peerRpc = rpc.connect(peerKeyBuffer);
-        registerPeerEvents(peerRpc, connectedPeers, 'sellers');
+        registerPeerEvents(peerRpc, connectedPeers, 'receivers');
       } catch (error) {
         console.error(
           `Failed to connect to known peer with publicKey ${publicKey}:`,
@@ -171,11 +171,11 @@ export async function startNode(storageDir, knownPeers = null) {
 function getAllPeers(connectedPeers) {
   const allPeers = new Set();
 
-  for (const peer of connectedPeers['bidders'].values()) {
+  for (const peer of connectedPeers['senders'].values()) {
     allPeers.add(peer);
   }
 
-  for (const peer of connectedPeers['sellers'].values()) {
+  for (const peer of connectedPeers['receivers'].values()) {
     allPeers.add(peer);
   }
 

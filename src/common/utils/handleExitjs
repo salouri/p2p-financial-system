@@ -11,12 +11,16 @@ export default async function handleExit({
     try {
       if (core) await core.close();
       if (db) await db.close();
+    } catch (error) {
+      console.error('Error closing core or db:', error);
+    }
+    try {
       if (allPeers) {
         notifyPeersRequest(allPeers, 'Server is shutting down.');
         saveKnownPeers(storageDir, allPeers);
       }
     } catch (error) {
-      console.error('Error closing core or db:', error);
+      console.error('Error notifying peers or saving connected ones:', error);
     }
 
     // on

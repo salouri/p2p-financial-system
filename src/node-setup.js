@@ -9,12 +9,12 @@ import {
   generateKeyPair,
 } from './common/config/config.js';
 import handleExit from './common/utils/handleExit.js';
-import {initializeDb} from './common/utils/initializeDb.js';
+import initializeDb from './common/utils/initializeDb.js';
 import requestHandlers from './peer/peerRequestHandler.js';
-import respondHandlers from './server/serverRespondHandler.js';
 import registerPeerEvents from './peer/registerPeerEvents.js';
 import registerSocketEvents from './server/registerSocketEvents.js';
-
+import getAllPeers from './common/utils/getAllPeers.js';
+import defineServerResponds from './server/defineServerResponds.js';
 const connectedPeers = {
   bidders: new Map(),
   sellers: new Map(),
@@ -32,13 +32,12 @@ export async function startNode(storageDir, knownPeers = null) {
 
   const server = rpc.createServer();
   await server.listen();
+  console.log('Server is listening...');
+
   const serverPublicKey = server.publicKey.toString('hex');
   console.log('Node Public Key:', serverPublicKey);
 
   // Handle RPC server events
-  server.on('listening', () => {
-    console.log('Server is listening...');
-  });
 
   server.on('close', () => {
     console.log('Server is closed');
@@ -58,25 +57,11 @@ export async function startNode(storageDir, knownPeers = null) {
     registerPeerEvents(rpcClient, connectedPeers, 'bidders');
   });
 
-  // Define Server Responses
-  server.respond('sendPublicKey', () =>
-    respondHandlers.sendPublicKeyRespond(serverPublicKey),
-  );
-  server.respond('sendTransaction', async req =>
-    respondHandlers.sendTransactionRespond(req, core, db),
-  );
-  server.respond(
-    'getTransaction',
-    async req => await respondHandlers.getTransactionRespond(req, core),
-  );
-  server.respond(
-    'notifyPeers',
-    async req => await respondHandlers.notifyPeersRespond(req),
-  );
+  await defineServerResponds(server);
 
   // Handle Swarm events
-  swarm.on('connection', (socket, info) => {
-    console.log('Swarm: got a new connection.');
+  swarm.on('connection', (socket, details) => {
+    console.log('Swarm: New connection established');
 
     socket.write(Buffer.from(JSON.stringify({serverPublicKey})));
 
@@ -84,7 +69,7 @@ export async function startNode(storageDir, knownPeers = null) {
 
     socket.on('data', async serverData => {
       console.log(
-        'Received data from peer:',
+        'Received data from a peer:',
         JSON.parse(serverData.toString()),
       );
       const {serverPublicKey} = JSON.parse(serverData.toString());
@@ -110,27 +95,51 @@ export async function startNode(storageDir, knownPeers = null) {
                   .replace(/'/g, '"'),
               );
             }
+            switch (command) {
+              case 'sendPublicKey':
+                await requestHandlers.sendPublicKeyRequest(client);
+                break;
 
-            if (command === 'send') {
-              const {sender, receiver, amount} = data;
-              await requestHandlers.sendTransactionRequest(
-                client,
-                {sender, receiver, amount},
-                core,
-                db,
-              );
-            } else if (command === 'get') {
-              const {index} = data;
-              await requestHandlers.getTransactionRequest(client, index);
-            } else if (command === 'sendPublicKey') {
-              await requestHandlers.sendPublicKeyRequest(client);
-            } else if (command === 'notifyPeers') {
-              const allPeers = getAllPeers(connectedPeers);
-              const message = data?.message || 'Broadcast message to all peers';
-              requestHandlers.notifyPeersRequest(allPeers, message);
-              console.log(`Broadcasted to connected peers: "${message}"`);
-            } else {
-              console.error('Invalid command');
+              case 'notifyPeers':
+                const allPeers = getAllPeers(connectedPeers);
+                const message =
+                  data?.message || 'Broadcast message to all peers';
+                await requestHandlers.notifyPeersRequest(allPeers, message);
+                console.log(`Peers notified with message: "${message}"`);
+                break;
+
+              case 'createAuction':
+                const [sellerId, item] = command.slice(1);
+                const auctionResponse = await createAuctionRequest(
+                  rpc,
+                  sellerId,
+                  item,
+                );
+                console.log('Auction Created:', auctionResponse);
+                break;
+
+              case 'placeBid':
+                const [auctionId, bidderId, amount] = command.slice(1);
+                const bidResponse = await placeBidRequest(
+                  rpc,
+                  auctionId,
+                  bidderId,
+                  parseFloat(amount),
+                );
+                console.log('Bid Placed:', bidResponse);
+                break;
+
+              case 'closeAuction':
+                const auctionToCloseId = command[1];
+                const closeAuctionResponse = await closeAuctionRequest(
+                  rpc,
+                  auctionToCloseId,
+                );
+                console.log('Auction Closed:', closeAuctionResponse);
+                break;
+
+              default:
+                console.log('Unknown command');
             }
           } catch (error) {
             console.error('Error processing command:', error);
@@ -166,18 +175,4 @@ export async function startNode(storageDir, knownPeers = null) {
   console.log('Node is running');
   const allPeers = getAllPeers(connectedPeers);
   handleExit({swarm, core, db, storageDir, allPeers});
-}
-
-function getAllPeers(connectedPeers) {
-  const allPeers = new Set();
-
-  for (const peer of connectedPeers['bidders'].values()) {
-    allPeers.add(peer);
-  }
-
-  for (const peer of connectedPeers['sellers'].values()) {
-    allPeers.add(peer);
-  }
-
-  return Array.from(allPeers);
 }

@@ -4,44 +4,40 @@ import {
   placeBid,
   closeAuction,
 } from '../auction/auctionManager.js';
-import getAllPeers from '../common/utils/getAllPeers.js';
+import getAllPeers from '../peer/getAllPeers.js';
 import {notifyPeersRequest} from '../peer/peerRequestHandler.js';
 
 export const createAuctionRespond = async (req, core, db, connectedPeers) => {
   const {sellerId, item} = JSON.parse(req.toString());
+  try {
   const auction = await createAuction(sellerId, item, core, db);
-  const allPeers = connectedPeers['bidders'].values();
-  notifyPeersRequest(
-    allPeers,
-    `New auction opened: ${JSON.stringify(auction)}`,
-  );
+  broadcastAuctionUpdate(auction, connectedPeers, 'New auction opened');
   return Buffer.from(JSON.stringify(auction));
+  catch (error) {
+    return Buffer.from(JSON.stringify({error: error.message}));
+  }
 };
 
 export const placeBidRespond = async (req, core, db, connectedPeers) => {
   const {auctionId, bidderId, amount} = JSON.parse(req.toString());
-  let result;
   try {
-    result = await placeBid(auctionId, bidderId, amount, core, db);
-    const allPeers = connectedPeers['bidders'].values();
-    notifyPeersRequest(allPeers, `New bid placed: ${JSON.stringify(bid)}`);
+    const bid = await placeBid(auctionId, bidderId, amount, core, db);
+    broadcastAuctionUpdate(bid, connectedPeers, 'New bid placed');
+    return Buffer.from(JSON.stringify(bid));
   } catch (error) {
-    result = {error: error.message};
+    return Buffer.from(JSON.stringify({error: error.message}));
   }
-  return Buffer.from(JSON.stringify(result));
 };
 
 export const closeAuctionRespond = async (req, core, db, connectedPeers) => {
   const {auctionId} = JSON.parse(req.toString());
-  let result;
   try {
-    result = await closeAuction(auctionId, core, db);
-    const allPeers = connectedPeers['bidders'].values();
-    notifyPeersRequest(allPeers, `Auction Closed: ${JSON.stringify(result)}`);
+    const auction = await closeAuction(auctionId, core, db);
+    broadcastAuctionUpdate(auction, connectedPeers, 'Acution Closed');
+    return Buffer.from(JSON.stringify(auction));
   } catch (error) {
-    result = {error: error.message};
+    return Buffer.from(JSON.stringify({error: error.message}));
   }
-  return Buffer.from(JSON.stringify(result));
 };
 
 export const sendPublicKeyRespond = publicKey => {
@@ -53,6 +49,11 @@ export const sendPublicKeyRespond = publicKey => {
 export const notifyPeersRespond = req => {
   const {message} = JSON.parse(req.toString());
   console.log('>>> Notification received! \n Message: ', message);
+};
+
+const broadcastAuctionUpdate = (auction, connectedPeers, message) => {
+  const allPeers = connectedPeers['bidders'].values();
+  notifyPeersRequest(allPeers, `${message}: ${JSON.stringify(auction)}`);
 };
 
 export default {

@@ -1,14 +1,14 @@
 import respondHandlers from './serverRespondHandler.js';
-import requestHandlers from './peer/peerRequestHandler.js';
+import requestHandlers from '../peer/peerRequestHandler.js';
 import getAllPeers from '../peer/getAllPeers.js';
 
-export default defineSeverEndpoints = async (rline
+export default async function defineSeverEndpoints(
+  rline,
   client,
   core,
   db,
   connectedPeers,
-) => {
-
+) {
   rline.on('line', async input => {
     const [command, ...jsonData] = input.split(' ');
     try {

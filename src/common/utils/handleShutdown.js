@@ -1,14 +1,16 @@
-// common/utils/handleExit.js
+// common/utils/handleShutdown.js
 import {notifyPeersRequest} from '../../peer/peerRequestHandler.js';
 import {saveKnownPeers} from '../../peer/manageKnownPeers.js';
-export default async function handleExit({
+import getAllPeers from '../../peer/getAllPeers.js';
+export default async function handleShutdown({
   swarm,
   core,
   db,
   storageDir,
-  allPeers,
+  connectedPeers,
 }) {
   async function gracefulShutdown() {
+    const allPeers = getAllPeers(connectedPeers);
     try {
       if (core) await core.close();
       if (db) await db.close();

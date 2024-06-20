@@ -7,7 +7,7 @@ import {
   bootstrapNodes,
   commonTopic,
   generateKeyPair,
-} from './common/config/config.js';
+} from './common/config/index.js';
 import handleExit from './common/utils/handleExit.js';
 import initializeDb from './common/utils/initializeDb.js';
 import requestHandlers from './peer/peerRequestHandler.js';

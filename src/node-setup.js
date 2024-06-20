@@ -1,4 +1,3 @@
-// node-setup.js
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
@@ -56,7 +55,7 @@ export async function startNode(storageDir, knownPeers = null) {
   await defineLocalEndpoints(rl, core, db, connectedPeers);
 
   // Handle RPC server events
-  server.on('close', () => {
+  server.on('close', async () => {
     console.log('Server is closed');
     // Notify all connected peers and close all connections
     const allPeers = getAllPeers(connectedPeers);
@@ -64,8 +63,10 @@ export async function startNode(storageDir, knownPeers = null) {
     for (const {client} of allPeers) {
       client.destroy();
     }
-    swarm.destroy();
+    await swarm.destroy();
     console.log('All connections closed and swarm destroyed.');
+    await db.close(); // Ensure the database is closed properly
+    console.log('Database closed.');
     process.exit();
   });
 

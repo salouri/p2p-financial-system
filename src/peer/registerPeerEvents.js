@@ -1,5 +1,6 @@
 // peer/registerPeerEvents.js
 import getClientPublicKey from './getClientPublicKey.js';
+
 export default function registerPeerEvents(client, connectedPeers, nodeType) {
   const publicKey = getClientPublicKey(client, nodeType);
 

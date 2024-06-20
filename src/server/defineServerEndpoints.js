@@ -2,7 +2,7 @@ import respondHandlers from './serverRespondHandler.js';
 import requestHandlers from '../peer/peerRequestHandler.js';
 import getAllPeers from '../peer/getAllPeers.js';
 
-export default async function defineSeverEndpoints(
+export default async function defineServerEndpoints(
   rline,
   client,
   core,
@@ -52,7 +52,10 @@ export default async function defineSeverEndpoints(
             db,
             connectedPeers,
           );
-          console.log('Local Auction Created:', localAuctRes);
+          console.log(
+            'Local Auction Created:',
+            JSON.parse(localAuctRes.toString()),
+          );
           break;
 
         case 'placeBid':
@@ -63,7 +66,7 @@ export default async function defineSeverEndpoints(
             bidderId,
             parseFloat(amount),
           );
-          console.log('Bid Placed:', bidResponse);
+          console.log('Bid Placed:', JSON.parse(bidResponse.toString()));
           break;
 
         case 'closeAuction':

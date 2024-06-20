@@ -93,7 +93,7 @@ export async function startNode(storageDir, knownPeers = null) {
           output: process.stdout,
         });
 
-        // Define server endpoints
+        // Define server endpoints defineSeverEndpoints
         await defineServerEndpoints(rLine, client, core, db, connectedPeers);
       }
     });

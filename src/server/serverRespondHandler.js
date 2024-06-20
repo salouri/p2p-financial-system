@@ -7,9 +7,14 @@ import {
 import getAllPeers from '../common/utils/getAllPeers.js';
 import {notifyPeersRequest} from '../peer/peerRequestHandler.js';
 
-export const createAuctionRespond = async (req, core, db) => {
+export const createAuctionRespond = async (req, core, db, connectedPeers) => {
   const {sellerId, item} = JSON.parse(req.toString());
   const auction = await createAuction(sellerId, item, core, db);
+  const allPeers = connectedPeers['bidders'].values();
+  notifyPeersRequest(
+    allPeers,
+    `New auction opened: ${JSON.stringify(auction)}`,
+  );
   return Buffer.from(JSON.stringify(auction));
 };
 
@@ -26,11 +31,13 @@ export const placeBidRespond = async (req, core, db, connectedPeers) => {
   return Buffer.from(JSON.stringify(result));
 };
 
-export const closeAuctionRespond = async (req, core, db) => {
+export const closeAuctionRespond = async (req, core, db, connectedPeers) => {
   const {auctionId} = JSON.parse(req.toString());
   let result;
   try {
     result = await closeAuction(auctionId, core, db);
+    const allPeers = connectedPeers['bidders'].values();
+    notifyPeersRequest(allPeers, `Auction Closed: ${JSON.stringify(result)}`);
   } catch (error) {
     result = {error: error.message};
   }

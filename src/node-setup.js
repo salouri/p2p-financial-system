@@ -130,6 +130,24 @@ export async function startNode(storageDir, knownPeers = null) {
                 console.log('Auction Created:', auctionResponse);
                 break;
 
+              case 'createAuction-local':
+                const {localSellerId, localItem} = data;
+                const auctionBuffer = Buffer.from(
+                  JSON.stringify({sellerId: localSellerId, item: localItem}),
+                );
+                const localAuctionResponse =
+                  await respondHandlers.createAuctionRespond(
+                    auctionBuffer,
+                    core,
+                    db,
+                    connectedPeers,
+                  );
+                console.log(
+                  'Local Auction Created:',
+                  localAuctionResponse.toString(),
+                );
+                break;
+
               case 'placeBid':
                 const {auctionId, bidderId, amount} = data;
                 const bidResponse = await requestHandlers.placeBidRequest(
@@ -151,9 +169,25 @@ export async function startNode(storageDir, knownPeers = null) {
                 console.log('Auction Closed:', closeAuctionResponse);
                 break;
 
+              case 'closeAuction-local':
+                const {localAuctionId} = data;
+                const localCloseAuctionResponse =
+                  await respondHandlers.closeAuctionRespond(
+                    Buffer.from(JSON.stringify({auctionId: localAuctionId})),
+                    core,
+                    db,
+                    connectedPeers,
+                  );
+                console.log(
+                  'Local Auction Closed:',
+                  localCloseAuctionResponse.toString(),
+                );
+                break;
+
               default:
                 console.log('Unknown command');
             }
+
           } catch (error) {
             console.error('Error processing command:', error);
           }

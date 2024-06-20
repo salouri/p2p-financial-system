@@ -13,7 +13,12 @@ export default async function defineServerResponds(
   });
 
   rpcServer.respond('createAuction', async req => {
-    return await respondHandlers.createAuctionRespond(req, core, db);
+    return await respondHandlers.createAuctionRespond(
+      req,
+      core,
+      db,
+      connectedPeers,
+    );
   });
 
   rpcServer.respond('placeBid', async req => {
@@ -21,7 +26,12 @@ export default async function defineServerResponds(
   });
 
   rpcServer.respond('closeAuction', async req => {
-    return await respondHandlers.closeAuctionRespond(req, core, db);
+    return await respondHandlers.closeAuctionRespond(
+      req,
+      core,
+      db,
+      connectedPeers,
+    );
   });
 
   rpcServer.respond('notifyPeers', async req => {

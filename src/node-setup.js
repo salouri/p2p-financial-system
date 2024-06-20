@@ -8,7 +8,7 @@ import {
   commonTopic,
   generateKeyPair,
 } from './common/config/index.js';
-import handleExit from './common/utils/handleExit.js';
+import handleShutdown from './common/utils/handleShutdown.js';
 import initializeDb from './common/utils/initializeDb.js';
 import requestHandlers from './peer/peerRequestHandler.js';
 import registerPeerEvents from './peer/registerPeerEvents.js';
@@ -71,11 +71,10 @@ export async function startNode(storageDir, knownPeers = null) {
     );
   });
 
-  defineServerResponds(server, core, db, connectedPeers);
+  await defineServerResponds(server, core, db, connectedPeers);
 
-  // Handle Swarm events
   swarm.on('connection', (socket, details) => {
-    console.log('Swarm: New connection established');
+    console.log('Swarm: Socket connection established');
 
     socket.write(Buffer.from(JSON.stringify({serverPublicKey})));
 
@@ -89,24 +88,15 @@ export async function startNode(storageDir, knownPeers = null) {
       const {serverPublicKey} = JSON.parse(remoteData.toString());
 
       if (serverPublicKey) {
-        // When this node (as a bidder) connecting to other nodes (sellers)
-        let client;
-        try {
-          client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
-          registerPeerEvents(client, connectedPeers, 'sellers');
-          console.log(
-            `Node connected to ${serverPublicKey.substring(0, 15)}...`,
-          );
-        } catch (error) {
-          console.error(error);
-          throw new Error('Error trying to connect to client!');
-        }
+        const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
+        registerPeerEvents(client, connectedPeers, 'sellers');
 
         const rLine = readline.createInterface({
           input: process.stdin,
           output: process.stdout,
         });
 
+        // Define server endpoints
         defineServerEndpoints(rLine, client, core, db, connectedPeers);
       }
     });
@@ -135,6 +125,5 @@ export async function startNode(storageDir, knownPeers = null) {
   }
 
   console.log('Node is running');
-  const allPeers = getAllPeers(connectedPeers);
-  handleExit({swarm, core, db, storageDir, allPeers});
+  handleShutdown({swarm, core, db, storageDir, connectedPeers});
 }

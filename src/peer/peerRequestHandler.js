@@ -40,10 +40,20 @@ export const notifyPeersRequest = async (peers, message) => {
     }
   }
 };
+
+export const notifyOnePeerRequest = async (client, message) => {
+  try {
+    client.event('notifyPeers', Buffer.from(JSON.stringify({message})));
+  } catch (error) {
+    console.error('Error notifying peer:', error);
+  }
+};
+
 export default {
   createAuctionRequest,
   placeBidRequest,
   closeAuctionRequest,
   sendPublicKeyRequest,
   notifyPeersRequest,
+  notifyOnePeerRequest,
 };

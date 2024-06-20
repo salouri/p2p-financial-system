@@ -59,16 +59,13 @@ export async function startNode(storageDir, knownPeers = null) {
     process.exit();
   });
 
-  // When other nodes (as bidders) connecting to this current one (seller)
+  // When other nodes (as bidders) connect to this current one (seller)
   server.on('connection', async rpcClient => {
     console.log('Server received a new connection');
     registerPeerEvents(rpcClient, connectedPeers, 'bidders');
     // Notify new peer about existing auctions using cached active auctions
     const activeAuctions = getCachedActiveAuctions();
-    rpcClient.request(
-      'notifyPeers',
-      Buffer.from(JSON.stringify({auctions: activeAuctions})),
-    );
+    requestHandlers.notifyOnePeerRequest(rpcClient, {auctions: activeAuctions});
   });
 
   await defineServerResponds(server, core, db, connectedPeers);
@@ -97,7 +94,7 @@ export async function startNode(storageDir, knownPeers = null) {
         });
 
         // Define server endpoints
-        defineServerEndpoints(rLine, client, core, db, connectedPeers);
+        await defineServerEndpoints(rLine, client, core, db, connectedPeers);
       }
     });
   });

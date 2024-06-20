@@ -29,7 +29,7 @@ export async function startNode(storageDir, knownPeers = null) {
   await dht.ready();
 
   const {core, db} = await initializeDb({storageDir}); // uses shared keyPair
-  const rpc = new RPC({dht, keyPair});
+  const rpc = new RPC({dht});
 
   const server = rpc.createServer();
   await server.listen();
@@ -58,7 +58,7 @@ export async function startNode(storageDir, knownPeers = null) {
     registerPeerEvents(rpcClient, connectedPeers, 'bidders');
   });
 
-  await defineServerResponds(server, core, db);
+  defineServerResponds(server, core, db);
 
   // Handle Swarm events
   swarm.on('connection', (socket, details) => {
@@ -68,21 +68,26 @@ export async function startNode(storageDir, knownPeers = null) {
 
     registerSocketEvents(socket);
 
-    socket.on('data', async serverData => {
+    socket.on('data', async remoteData => {
       console.log(
         'Received data from a peer:',
-        JSON.parse(serverData.toString()),
+        JSON.parse(remoteData.toString()),
       );
-      const {serverPublicKey} = JSON.parse(serverData.toString());
+      const {serverPublicKey} = JSON.parse(remoteData.toString());
+
       if (serverPublicKey) {
         // When this node (as a bidder) connecting to other nodes (sellers)
-       try {
-         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
-         registerPeerEvents(client, connectedPeers, 'sellers');
-       } catch (error) {
-         console.error(error);
-         throw new Error('Error trying to connect to client!');
-       }
+        let client;
+        try {
+          client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
+          registerPeerEvents(client, connectedPeers, 'sellers');
+          console.log(
+            `Node connected to ${serverPublicKey.substring(0, 15)}...`,
+          );
+        } catch (error) {
+          console.error(error);
+          throw new Error('Error trying to connect to client!');
+        }
 
         const rl = readline.createInterface({
           input: process.stdin,

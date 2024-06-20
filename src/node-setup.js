@@ -15,6 +15,7 @@ import registerPeerEvents from './peer/registerPeerEvents.js';
 import registerSocketEvents from './server/registerSocketEvents.js';
 import getAllPeers from './common/utils/getAllPeers.js';
 import defineServerResponds from './server/defineServerResponds.js';
+
 const connectedPeers = {
   bidders: new Map(),
   sellers: new Map(),
@@ -38,7 +39,6 @@ export async function startNode(storageDir, knownPeers = null) {
   console.log('Node Public Key:', serverPublicKey);
 
   // Handle RPC server events
-
   server.on('close', () => {
     console.log('Server is closed');
     // Notify all connected peers and close all connections
@@ -51,13 +51,14 @@ export async function startNode(storageDir, knownPeers = null) {
     console.log('All connections closed and swarm destroyed.');
     process.exit();
   });
-  // when other nodes (as bidders) connecting to this current one (seller)
+
+  // When other nodes (as bidders) connecting to this current one (seller)
   server.on('connection', async rpcClient => {
     console.log('Server received a new connection');
     registerPeerEvents(rpcClient, connectedPeers, 'bidders');
   });
 
-  await defineServerResponds(server);
+  await defineServerResponds(server, core, db);
 
   // Handle Swarm events
   swarm.on('connection', (socket, details) => {
@@ -74,7 +75,7 @@ export async function startNode(storageDir, knownPeers = null) {
       );
       const {serverPublicKey} = JSON.parse(serverData.toString());
       if (serverPublicKey) {
-        // when this node (as a bidder) connecting to other nodes (sellers)
+        // When this node (as a bidder) connecting to other nodes (sellers)
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
         registerPeerEvents(client, connectedPeers, 'sellers');
 
@@ -89,7 +90,7 @@ export async function startNode(storageDir, knownPeers = null) {
             let data = {};
             if (jsonData.length > 0) {
               const dataStr = jsonData.join(' ');
-              const data = JSON.parse(
+              data = JSON.parse(
                 dataStr
                   .replace(/([a-zA-Z0-9_]+?):/g, '"$1":')
                   .replace(/'/g, '"'),
@@ -109,19 +110,20 @@ export async function startNode(storageDir, knownPeers = null) {
                 break;
 
               case 'createAuction':
-                const [sellerId, item] = command.slice(1);
-                const auctionResponse = await createAuctionRequest(
-                  rpc,
-                  sellerId,
-                  item,
-                );
+                const {sellerId, item} = data;
+                const auctionResponse =
+                  await requestHandlers.createAuctionRequest(
+                    client,
+                    sellerId,
+                    item,
+                  );
                 console.log('Auction Created:', auctionResponse);
                 break;
 
               case 'placeBid':
-                const [auctionId, bidderId, amount] = command.slice(1);
-                const bidResponse = await placeBidRequest(
-                  rpc,
+                const {auctionId, bidderId, amount} = data;
+                const bidResponse = await requestHandlers.placeBidRequest(
+                  client,
                   auctionId,
                   bidderId,
                   parseFloat(amount),
@@ -130,11 +132,12 @@ export async function startNode(storageDir, knownPeers = null) {
                 break;
 
               case 'closeAuction':
-                const auctionToCloseId = command[1];
-                const closeAuctionResponse = await closeAuctionRequest(
-                  rpc,
-                  auctionToCloseId,
-                );
+                const {auctionId: auctionToCloseId} = data;
+                const closeAuctionResponse =
+                  await requestHandlers.closeAuctionRequest(
+                    client,
+                    auctionToCloseId,
+                  );
                 console.log('Auction Closed:', closeAuctionResponse);
                 break;
 
@@ -150,7 +153,7 @@ export async function startNode(storageDir, knownPeers = null) {
   });
 
   const discovery = swarm.join(commonTopic, {server: true, client: true});
-  await discovery.flushed(); // once resolved, it means topic is joined
+  await discovery.flushed(); // Once resolved, it means the topic is joined
 
   // Connect to known peers
   if (knownPeers) {
@@ -160,7 +163,6 @@ export async function startNode(storageDir, knownPeers = null) {
       const {publicKey} = peer;
       const peerKeyBuffer = Buffer.from(publicKey, 'hex');
       try {
-        const peerKeyBuffer = Buffer.from(publicKey, 'hex');
         const peerRpc = rpc.connect(peerKeyBuffer);
         registerPeerEvents(peerRpc, connectedPeers, 'sellers');
       } catch (error) {

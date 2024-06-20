@@ -13,8 +13,13 @@ import initializeDb from './common/utils/initializeDb.js';
 import requestHandlers from './peer/peerRequestHandler.js';
 import registerPeerEvents from './peer/registerPeerEvents.js';
 import registerSocketEvents from './server/registerSocketEvents.js';
-import getAllPeers from './common/utils/getAllPeers.js';
+import getAllPeers from './peer/getAllPeers.js';
 import defineServerResponds from './server/defineServerResponds.js';
+import defineServerEndpoints from './server/defineServerEndpoints.js';
+import {
+  getActiveAuctionsFromDb,
+  getCachedActiveAuctions,
+} from './auction/auctionManager.js';
 
 const connectedPeers = {
   bidders: new Map(),
@@ -29,6 +34,8 @@ export async function startNode(storageDir, knownPeers = null) {
   await dht.ready();
 
   const {core, db} = await initializeDb({storageDir}); // uses shared keyPair
+  await getActiveAuctionsFromDb(db); // Populate activeAuctions cache at startup
+
   const rpc = new RPC({dht});
 
   const server = rpc.createServer();
@@ -56,6 +63,12 @@ export async function startNode(storageDir, knownPeers = null) {
   server.on('connection', async rpcClient => {
     console.log('Server received a new connection');
     registerPeerEvents(rpcClient, connectedPeers, 'bidders');
+    // Notify new peer about existing auctions using cached active auctions
+    const activeAuctions = getCachedActiveAuctions();
+    rpcClient.request(
+      'notifyPeers',
+      Buffer.from(JSON.stringify({auctions: activeAuctions})),
+    );
   });
 
   defineServerResponds(server, core, db, connectedPeers);
@@ -89,109 +102,12 @@ export async function startNode(storageDir, knownPeers = null) {
           throw new Error('Error trying to connect to client!');
         }
 
-        const rl = readline.createInterface({
+        const rLine = readline.createInterface({
           input: process.stdin,
           output: process.stdout,
         });
 
-        rl.on('line', async input => {
-          const [command, ...jsonData] = input.split(' ');
-          try {
-            let data = {};
-            if (jsonData.length > 0) {
-              const dataStr = jsonData.join(' ');
-              data = JSON.parse(
-                dataStr
-                  .replace(/([a-zA-Z0-9_]+?):/g, '"$1":')
-                  .replace(/'/g, '"'),
-              );
-            }
-            switch (command) {
-              case 'sendPublicKey':
-                await requestHandlers.sendPublicKeyRequest(client);
-                break;
-
-              case 'notifyPeers':
-                const allPeers = getAllPeers(connectedPeers);
-                const message =
-                  data?.message || 'Broadcast message to all peers';
-                await requestHandlers.notifyPeersRequest(allPeers, message);
-                console.log(`Peers notified with message: "${message}"`);
-                break;
-
-              case 'createAuction':
-                const {sellerId, item} = data;
-                const auctionResponse =
-                  await requestHandlers.createAuctionRequest(
-                    client,
-                    sellerId,
-                    item,
-                  );
-                console.log('Auction Created:', auctionResponse);
-                break;
-
-              case 'createAuction-local':
-                const {localSellerId, localItem} = data;
-                const auctionBuffer = Buffer.from(
-                  JSON.stringify({sellerId: localSellerId, item: localItem}),
-                );
-                const localAuctionResponse =
-                  await respondHandlers.createAuctionRespond(
-                    auctionBuffer,
-                    core,
-                    db,
-                    connectedPeers,
-                  );
-                console.log(
-                  'Local Auction Created:',
-                  localAuctionResponse.toString(),
-                );
-                break;
-
-              case 'placeBid':
-                const {auctionId, bidderId, amount} = data;
-                const bidResponse = await requestHandlers.placeBidRequest(
-                  client,
-                  auctionId,
-                  bidderId,
-                  parseFloat(amount),
-                );
-                console.log('Bid Placed:', bidResponse);
-                break;
-
-              case 'closeAuction':
-                const {auctionId: auctionToCloseId} = data;
-                const closeAuctionResponse =
-                  await requestHandlers.closeAuctionRequest(
-                    client,
-                    auctionToCloseId,
-                  );
-                console.log('Auction Closed:', closeAuctionResponse);
-                break;
-
-              case 'closeAuction-local':
-                const {localAuctionId} = data;
-                const localCloseAuctionResponse =
-                  await respondHandlers.closeAuctionRespond(
-                    Buffer.from(JSON.stringify({auctionId: localAuctionId})),
-                    core,
-                    db,
-                    connectedPeers,
-                  );
-                console.log(
-                  'Local Auction Closed:',
-                  localCloseAuctionResponse.toString(),
-                );
-                break;
-
-              default:
-                console.log('Unknown command');
-            }
-
-          } catch (error) {
-            console.error('Error processing command:', error);
-          }
-        });
+        defineServerEndpoints(rLine, client, core, db, connectedPeers);
       }
     });
   });

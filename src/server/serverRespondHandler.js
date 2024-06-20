@@ -4,6 +4,8 @@ import {
   placeBid,
   closeAuction,
 } from '../auction/auctionManager.js';
+import getAllPeers from '../common/utils/getAllPeers.js';
+import {notifyPeersRequest} from '../peer/peerRequestHandler.js';
 
 export const createAuctionRespond = async (req, core, db) => {
   const {sellerId, item} = JSON.parse(req.toString());
@@ -11,11 +13,13 @@ export const createAuctionRespond = async (req, core, db) => {
   return Buffer.from(JSON.stringify(auction));
 };
 
-export const placeBidRespond = async (req, core, db) => {
+export const placeBidRespond = async (req, core, db, connectedPeers) => {
   const {auctionId, bidderId, amount} = JSON.parse(req.toString());
   let result;
   try {
     result = await placeBid(auctionId, bidderId, amount, core, db);
+    const allPeers = connectedPeers['bidders'].values();
+    notifyPeersRequest(allPeers, `New bid placed: ${JSON.stringify(bid)}`);
   } catch (error) {
     result = {error: error.message};
   }

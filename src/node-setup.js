@@ -58,7 +58,7 @@ export async function startNode(storageDir, knownPeers = null) {
     registerPeerEvents(rpcClient, connectedPeers, 'bidders');
   });
 
-  defineServerResponds(server, core, db);
+  defineServerResponds(server, core, db, connectedPeers);
 
   // Handle Swarm events
   swarm.on('connection', (socket, details) => {

@@ -1,7 +1,12 @@
 import respondHandlers from './serverRespondHandler.js';
 
 // Define RPC Server Responses
-export default async function defineServerResponds(rpcServer, core, db) {
+export default async function defineServerResponds(
+  rpcServer,
+  core,
+  db,
+  connectedPeers,
+) {
   rpcServer.respond('sendPublicKey', () => {
     const publicKey = rpcServer.publicKey.toString('hex');
     return respondHandlers.sendPublicKeyRespond(publicKey);
@@ -12,7 +17,7 @@ export default async function defineServerResponds(rpcServer, core, db) {
   });
 
   rpcServer.respond('placeBid', async req => {
-    return await respondHandlers.placeBidRespond(req, core, db);
+    return await respondHandlers.placeBidRespond(req, core, db, connectedPeers);
   });
 
   rpcServer.respond('closeAuction', async req => {

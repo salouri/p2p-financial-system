@@ -6,16 +6,20 @@ export default async function defineServerResponds(rpcServer, core, db) {
     const publicKey = rpcServer.publicKey.toString('hex');
     return respondHandlers.sendPublicKeyRespond(publicKey);
   });
-  rpcServer.respond('createAuction', async req =>
-    respondHandlers.createAuctionRespond(req, core, db),
-  );
-  rpcServer.respond('placeBid', async req =>
-    respondHandlers.placeBidRespond(req, core),
-  );
-  rpcServer.respond('closeAuction', async req =>
-    respondHandlers.closeAuctionRespond(req, core),
-  );
-  rpcServer.respond('notifyPeers', async req =>
-    respondHandlers.notifyPeersRespond(req),
-  );
+
+  rpcServer.respond('createAuction', async req => {
+    return await respondHandlers.createAuctionRespond(req, core, db);
+  });
+
+  rpcServer.respond('placeBid', async req => {
+    return await respondHandlers.placeBidRespond(req, core, db);
+  });
+
+  rpcServer.respond('closeAuction', async req => {
+    return await respondHandlers.closeAuctionRespond(req, core, db);
+  });
+
+  rpcServer.respond('notifyPeers', async req => {
+    return await respondHandlers.notifyPeersRespond(req);
+  });
 }

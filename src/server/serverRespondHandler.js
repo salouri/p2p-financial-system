@@ -10,10 +10,10 @@ import {notifyPeersRequest} from '../peer/peerRequestHandler.js';
 export const createAuctionRespond = async (req, core, db, connectedPeers) => {
   const {sellerId, item} = JSON.parse(req.toString());
   try {
-  const auction = await createAuction(sellerId, item, core, db);
-  broadcastAuctionUpdate(auction, connectedPeers, 'New auction opened');
-  return Buffer.from(JSON.stringify(auction));
-  catch (error) {
+    const auction = await createAuction(sellerId, item, core, db);
+    broadcastAuctionUpdate(auction, connectedPeers, 'New auction opened');
+    return Buffer.from(JSON.stringify(auction));
+  } catch (error) {
     return Buffer.from(JSON.stringify({error: error.message}));
   }
 };

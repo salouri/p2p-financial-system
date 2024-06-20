@@ -76,8 +76,13 @@ export async function startNode(storageDir, knownPeers = null) {
       const {serverPublicKey} = JSON.parse(serverData.toString());
       if (serverPublicKey) {
         // When this node (as a bidder) connecting to other nodes (sellers)
-        const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
-        registerPeerEvents(client, connectedPeers, 'sellers');
+       try {
+         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
+         registerPeerEvents(client, connectedPeers, 'sellers');
+       } catch (error) {
+         console.error(error);
+         throw new Error('Error trying to connect to client!');
+       }
 
         const rl = readline.createInterface({
           input: process.stdin,

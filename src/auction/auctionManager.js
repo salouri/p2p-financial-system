@@ -16,10 +16,11 @@ export const createAuction = async (sellerId, item, core, db) => {
   try {
     const logRecord = JSON.stringify({type: 'auction', value: auction});
     await core.append(logRecord);
-    await db.put(auctionId, JSON.stringify(auction)); // Ensure data is stored as a string
+    await db.put(auctionId, auction); // Store auction object directly
     activeAuctions.set(auction.id, auction);
   } catch (error) {
     console.error('Error saving auction to database!', error);
+    throw error;
   }
 
   return auction;
@@ -27,19 +28,18 @@ export const createAuction = async (sellerId, item, core, db) => {
 
 export const getAuction = async (auctionId, db) => {
   try {
-    const auctionBuffer = await db.get(auctionId);
-    return auctionBuffer ? JSON.parse(auctionBuffer.toString()) : null; // Ensure correct decoding
+    const auction = await db.get(auctionId);
+    return auction;
   } catch (error) {
     console.error('Error retrieving auction from database!', error);
-    return null;
+    throw error;
   }
 };
 
 export const placeBid = async (auctionId, bidderId, amount, core, db) => {
   try {
-    const auctionBuffer = await db.get(auctionId);
-    if (auctionBuffer) {
-      const auction = JSON.parse(auctionBuffer.toString());
+    const auction = await db.get(auctionId);
+    if (auction) {
       if (auction.status === 'open') {
         const bid = {bidderId, amount, timestamp: Date.now()};
         auction.bids.push(bid);
@@ -49,7 +49,7 @@ export const placeBid = async (auctionId, bidderId, amount, core, db) => {
 
         const logRecord = JSON.stringify({type: 'bid', value: bid});
         await core.append(logRecord);
-        await db.put(auctionId, JSON.stringify(auction));
+        await db.put(auctionId, auction); // Update auction object directly
         activeAuctions.set(auction.id, auction);
 
         return bid;
@@ -67,9 +67,8 @@ export const placeBid = async (auctionId, bidderId, amount, core, db) => {
 
 export const closeAuction = async (auctionId, core, db) => {
   try {
-    const auctionBuffer = await db.get(auctionId);
-    if (auctionBuffer) {
-      const auction = JSON.parse(auctionBuffer.toString());
+    const auction = await db.get(auctionId);
+    if (auction) {
       if (auction.status === 'open') {
         auction.status = 'closed';
 
@@ -78,7 +77,7 @@ export const closeAuction = async (auctionId, core, db) => {
           value: auction,
         });
         await core.append(logRecord);
-        await db.put(auctionId, JSON.stringify(auction));
+        await db.put(auctionId, auction); // Update auction object directly
         activeAuctions.delete(auctionId);
 
         return auction;
@@ -101,14 +100,14 @@ export const getActiveAuctionsFromDb = async db => {
       keys: false,
       values: true,
     })) {
-      const auction = JSON.parse(value.toString());
-      if (auction.status === 'open') {
-        auctions.push(auction);
-        activeAuctions.set(auction.id, auction);
+      if (value.status === 'open') {
+        auctions.push(value);
+        activeAuctions.set(value.id, value);
       }
     }
   } catch (error) {
     console.error('Error loading active auctions from database:', error);
+    throw error;
   }
   return auctions;
 };

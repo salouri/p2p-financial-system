@@ -25,4 +25,4 @@ let storageDir = `./storage/node-${id}`;
 // Load previously connected peers, if any
 const knownPeers = loadKnownPeers(storageDir);
 
-startNode(storageDir, serverPublicKey);
+await startNode(storageDir, serverPublicKey);

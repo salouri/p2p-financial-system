@@ -8,7 +8,7 @@ export default function registerPeerEvents(client, connectedPeers, nodeType) {
     const clientType = nodeType.substring(0, nodeType.length - 1);
     console.log(`${clientType} peer connection opened`);
     console.log(
-      `adding ${clientType} client to connectedPeers: ${String(
+      `adding ${clientType} peer to connectedPeers: ${String(
         publicKey,
       ).substring(0, 15)}...`,
     );

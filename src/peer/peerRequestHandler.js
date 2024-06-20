@@ -20,7 +20,7 @@ export const closeAuctionRequest = async (client, auctionId) => {
 
 export const sendPublicKeyRequest = async client => {
   try {
-    console.log('Requesting Peer-Public-Key...');
+    console.log('Requesting Public-Key from remote node...');
     const response = await client.request('sendPublicKey', Buffer.alloc(0));
     const parsedRes = JSON.parse(response?.toString() || '{}');
     const {publicKey} = parsedRes;

@@ -16,7 +16,8 @@
     "hyperbee": "^2.19.6",
     "hypercore": "^10.37.7",
     "hyperdht": "^6.15.1",
-    "hyperswarm": "^4.7.15"
+    "hyperswarm": "^4.7.15",
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
     "fs-extra": "^11.2.0"

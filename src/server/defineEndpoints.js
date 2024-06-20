@@ -2,7 +2,56 @@ import respondHandlers from './serverRespondHandler.js';
 import requestHandlers from '../peer/peerRequestHandler.js';
 import getAllPeers from '../peer/getAllPeers.js';
 
-export default async function defineServerEndpoints(
+export async function defineLocalEndpoints(rline, core, db, connectedPeers) {
+  rline.on('line', async input => {
+    const [command, ...jsonData] = input.split(' ');
+    try {
+      let data = {};
+      if (jsonData.length > 0) {
+        const dataStr = jsonData.join(' ');
+        data = JSON.parse(
+          dataStr.replace(/([a-zA-Z0-9_]+?):/g, '"$1":').replace(/'/g, '"'),
+        );
+      }
+      switch (command) {
+        case 'createAuction-local':
+          const {localSellerId, localItem} = data;
+          const auctionBuffer = Buffer.from(
+            JSON.stringify({sellerId: localSellerId, item: localItem}),
+          );
+          const localAuctRes = await respondHandlers.createAuctionRespond(
+            auctionBuffer,
+            core,
+            db,
+            connectedPeers,
+          );
+          console.log(
+            'Local Auction Created:',
+            JSON.parse(localAuctRes.toString()),
+          );
+          break;
+
+        case 'closeAuction-local':
+          const {localAuctionId} = data;
+          const localCloseAucRes = await respondHandlers.closeAuctionRespond(
+            Buffer.from(JSON.stringify({auctionId: localAuctionId})),
+            core,
+            db,
+            connectedPeers,
+          );
+          console.log('Local Auction Closed:', localCloseAucRes.toString());
+          break;
+
+        default:
+          console.log('Unknown command');
+      }
+    } catch (error) {
+      console.error('Error processing command:', error);
+    }
+  });
+}
+
+export async function defineServerEndpoints(
   rline,
   client,
   core,
@@ -94,4 +143,4 @@ export default async function defineServerEndpoints(
       console.error('Error processing command:', error);
     }
   });
-};
+}

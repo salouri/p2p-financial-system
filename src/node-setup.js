@@ -15,7 +15,10 @@ import registerPeerEvents from './peer/registerPeerEvents.js';
 import registerSocketEvents from './server/registerSocketEvents.js';
 import getAllPeers from './peer/getAllPeers.js';
 import defineServerResponds from './server/defineServerResponds.js';
-import defineServerEndpoints from './server/defineServerEndpoints.js';
+import {
+  defineServerEndpoints,
+  defineLocalEndpoints,
+} from './server/defineEndpoints.js';
 import {
   getActiveAuctionsFromDb,
   getCachedActiveAuctions,
@@ -44,6 +47,13 @@ export async function startNode(storageDir, knownPeers = null) {
 
   const serverPublicKey = server.publicKey.toString('hex');
   console.log('Node Public Key:', serverPublicKey);
+
+  // Local commands that don't require a client connection
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  await defineLocalEndpoints(rl, core, db, connectedPeers);
 
   // Handle RPC server events
   server.on('close', () => {
@@ -93,7 +103,7 @@ export async function startNode(storageDir, knownPeers = null) {
           output: process.stdout,
         });
 
-        // Define server endpoints defineSeverEndpoints
+        // Define server endpoints for clients/remote communication
         await defineServerEndpoints(rLine, client, core, db, connectedPeers);
       }
     });

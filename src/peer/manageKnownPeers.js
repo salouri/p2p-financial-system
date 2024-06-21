@@ -21,7 +21,8 @@ export const saveKnownPeers = (storageDir, peers) => {
     publicKey: peer.publicKey;
     timestamp: peer.timestamp;
   });
-  fs.writeFileSync(filePath, JSON.stringify(prunedPeers, null, 2));
+  if (fs.existsSync(filePath))
+    fs.writeFileSync(filePath, JSON.stringify(prunedPeers, null, 2));
 };
 
 export default {loadKnownPeers, saveKnownPeers};

@@ -48,11 +48,11 @@ export async function startNode(storageDir, knownPeers = null) {
   console.log('Node Public Key:', serverPublicKey);
 
   // Local commands that don't require a client connection
-  const rl = readline.createInterface({
+  const rLine = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
-  await defineLocalEndpoints(rl, db, connectedPeers);
+  await defineLocalEndpoints(rLine, db, connectedPeers);
 
   // Handle RPC server events
   server.on('close', async () => {
@@ -98,11 +98,6 @@ export async function startNode(storageDir, knownPeers = null) {
       if (serverPublicKey) {
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
         registerPeerEvents(client, connectedPeers, 'sellers');
-
-        const rLine = readline.createInterface({
-          input: process.stdin,
-          output: process.stdout,
-        });
 
         // Define server endpoints for clients/remote communication
         await defineServerEndpoints(rLine, client, db, connectedPeers);

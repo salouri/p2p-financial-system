@@ -2,7 +2,7 @@ import respondHandlers from './serverRespondHandler.js';
 import requestHandlers from '../peer/peerRequestHandler.js';
 import getAllPeers from '../peer/getAllPeers.js';
 
-export async function defineLocalEndpoints(rline, core, db, connectedPeers) {
+export async function defineLocalEndpoints(rline, db, connectedPeers) {
   rline.on('line', async input => {
     const [command, ...jsonData] = input.split(' ');
     try {
@@ -21,7 +21,6 @@ export async function defineLocalEndpoints(rline, core, db, connectedPeers) {
           );
           const localAuctRes = await respondHandlers.createAuctionRespond(
             auctionBuffer,
-            core,
             db,
             connectedPeers,
           );
@@ -35,7 +34,6 @@ export async function defineLocalEndpoints(rline, core, db, connectedPeers) {
           const {localAuctionId} = data;
           const localCloseAucRes = await respondHandlers.closeAuctionRespond(
             Buffer.from(JSON.stringify({auctionId: localAuctionId})),
-            core,
             db,
             connectedPeers,
           );
@@ -51,13 +49,7 @@ export async function defineLocalEndpoints(rline, core, db, connectedPeers) {
   });
 }
 
-export async function defineServerEndpoints(
-  rline,
-  client,
-  core,
-  db,
-  connectedPeers,
-) {
+export async function defineServerEndpoints(rline, client, db, connectedPeers) {
   rline.on('line', async input => {
     const [command, ...jsonData] = input.split(' ');
     try {
@@ -97,7 +89,6 @@ export async function defineServerEndpoints(
           );
           const localAuctRes = await respondHandlers.createAuctionRespond(
             auctionBuffer,
-            core,
             db,
             connectedPeers,
           );
@@ -129,7 +120,6 @@ export async function defineServerEndpoints(
           const {localAuctionId} = data;
           const localCloseAucRes = await respondHandlers.closeAuctionRespond(
             Buffer.from(JSON.stringify({auctionId: localAuctionId})),
-            core,
             db,
             connectedPeers,
           );

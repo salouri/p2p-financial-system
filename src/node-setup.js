@@ -35,7 +35,7 @@ export async function startNode(storageDir, knownPeers = null) {
   const dht = new DHT({keyPair, bootstrap: bootstrapNodes});
   await dht.ready();
 
-  const {core, db} = await initializeDb({storageDir}); // uses shared keyPair
+  const db = await initializeDb(storageDir); // uses shared keyPair
   await getActiveAuctionsFromDb(db); // Populate activeAuctions cache at startup
 
   const rpc = new RPC({dht});
@@ -52,7 +52,7 @@ export async function startNode(storageDir, knownPeers = null) {
     input: process.stdin,
     output: process.stdout,
   });
-  await defineLocalEndpoints(rl, core, db, connectedPeers);
+  await defineLocalEndpoints(rl, db, connectedPeers);
 
   // Handle RPC server events
   server.on('close', async () => {
@@ -79,7 +79,7 @@ export async function startNode(storageDir, knownPeers = null) {
     requestHandlers.notifyOnePeerRequest(rpcClient, {auctions: activeAuctions});
   });
 
-  await defineServerResponds(server, core, db, connectedPeers);
+  await defineServerResponds(server, db, connectedPeers);
 
   swarm.on('connection', (socket, details) => {
     console.log('Swarm: Socket connection established');
@@ -105,7 +105,7 @@ export async function startNode(storageDir, knownPeers = null) {
         });
 
         // Define server endpoints for clients/remote communication
-        await defineServerEndpoints(rLine, client, core, db, connectedPeers);
+        await defineServerEndpoints(rLine, client, db, connectedPeers);
       }
     });
   });
@@ -133,5 +133,5 @@ export async function startNode(storageDir, knownPeers = null) {
   }
 
   console.log('Node is running');
-  handleShutdown({swarm, core, db, storageDir, connectedPeers});
+  handleShutdown({swarm, db, storageDir, connectedPeers});
 }

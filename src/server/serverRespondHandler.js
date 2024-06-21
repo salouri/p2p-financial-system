@@ -7,10 +7,10 @@ import {
 import getAllPeers from '../peer/getAllPeers.js';
 import {notifyPeersRequest} from '../peer/peerRequestHandler.js';
 
-export const createAuctionRespond = async (req, core, db, connectedPeers) => {
+export const createAuctionRespond = async (req, db, connectedPeers) => {
   const {sellerId, item} = JSON.parse(req.toString());
   try {
-    const auction = await createAuction(sellerId, item, core, db);
+    const auction = await createAuction(sellerId, item, db);
     broadcastAuctionUpdate(auction, connectedPeers, 'New auction opened');
     return Buffer.from(JSON.stringify(auction));
   } catch (error) {
@@ -18,10 +18,10 @@ export const createAuctionRespond = async (req, core, db, connectedPeers) => {
   }
 };
 
-export const placeBidRespond = async (req, core, db, connectedPeers) => {
+export const placeBidRespond = async (req, db, connectedPeers) => {
   const {auctionId, bidderId, amount} = JSON.parse(req.toString());
   try {
-    const bid = await placeBid(auctionId, bidderId, amount, core, db);
+    const bid = await placeBid(auctionId, bidderId, amount, db);
     broadcastAuctionUpdate(bid, connectedPeers, 'New bid placed');
     return Buffer.from(JSON.stringify(bid));
   } catch (error) {
@@ -29,10 +29,10 @@ export const placeBidRespond = async (req, core, db, connectedPeers) => {
   }
 };
 
-export const closeAuctionRespond = async (req, core, db, connectedPeers) => {
+export const closeAuctionRespond = async (req, db, connectedPeers) => {
   const {auctionId} = JSON.parse(req.toString());
   try {
-    const auction = await closeAuction(auctionId, core, db);
+    const auction = await closeAuction(auctionId, db);
     broadcastAuctionUpdate(auction, connectedPeers, 'Acution Closed');
     return Buffer.from(JSON.stringify(auction));
   } catch (error) {

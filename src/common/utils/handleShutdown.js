@@ -2,20 +2,13 @@
 import {notifyPeersRequest} from '../../peer/peerRequestHandler.js';
 import {saveKnownPeers} from '../../peer/manageKnownPeers.js';
 import getAllPeers from '../../peer/getAllPeers.js';
-export default async function handleShutdown({
-  swarm,
-  core,
-  db,
-  storageDir,
-  connectedPeers,
-}) {
+export default async function handleShutdown({swarm, db, storageDir, connectedPeers}) {
   async function gracefulShutdown() {
     const allPeers = getAllPeers(connectedPeers);
     try {
-      if (core) await core.close();
-      if (db) await db.close();
+      await db.close();
     } catch (error) {
-      console.error('Error closing core or db:', error);
+      console.error('Error closing db:', error);
     }
     try {
       if (allPeers) {

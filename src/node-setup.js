@@ -2,11 +2,7 @@ import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
 import readline from 'readline';
-import {
-  bootstrapNodes,
-  commonTopic,
-  generateKeyPair,
-} from './common/config/index.js';
+import config from './common/config/index.js';
 import handleShutdown from './common/utils/handleShutdown.js';
 import initializeDb from './common/utils/initializeDb.js';
 import requestHandlers from './peer/peerRequestHandler.js';
@@ -31,8 +27,8 @@ const connectedPeers = {
 export async function startNode(storageDir, knownPeers = null) {
   const swarm = new Hyperswarm();
 
-  const keyPair = generateKeyPair();
-  const dht = new DHT({keyPair, bootstrap: bootstrapNodes});
+  const keyPair = DHT.keyPair();
+  const dht = new DHT({keyPair, bootstrap: config.bootstrapNodes});
   await dht.ready();
 
   const db = await initializeDb(storageDir); // uses shared keyPair
@@ -105,7 +101,10 @@ export async function startNode(storageDir, knownPeers = null) {
     });
   });
 
-  const discovery = swarm.join(commonTopic, {server: true, client: true});
+  const discovery = swarm.join(config.commonTopic, {
+    server: true,
+    client: true,
+  });
   await discovery.flushed(); // Once resolved, it means the topic is joined
 
   // Connect to known peers

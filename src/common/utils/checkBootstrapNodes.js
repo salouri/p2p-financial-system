@@ -1,8 +1,8 @@
 import DHT from 'hyperdht';
-import {bootstrapNodes} from '../config/index.js';
+import config from '../config/index.js';
 export default async bootstrapNodes => {
   const dht = new DHT();
-  const result = bootstrapNodes.some(async node => {
+  const result = config.bootstrapNodes.some(async node => {
     try {
       const {host, port} = node;
       await dht.ping({host, port});

@@ -10,7 +10,7 @@ const config = {
   bootstrapNodes: [
     {host: '127.0.0.1', port: 30001}, //  hyperdht --bootstrap --host 127.0.0.1 --port 30001
   ],
-  storageDir: './storage',
+  storageDir: 'storage',
   valueEncoding: 'json',
   keyPair: {
     publicKey: Buffer.from(process.env.PUBLIC_KEY, 'hex'),

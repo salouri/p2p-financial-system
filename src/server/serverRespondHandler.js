@@ -2,6 +2,7 @@ import {
   createAuction,
   placeBid,
   closeAuction,
+  getAuction,
 } from '../auction/auctionManager.js';
 import eventEmitter from '../common/events/eventEmitter.js';
 
@@ -46,10 +47,21 @@ export const notifyPeersRespond = req => {
   console.log('>>> Notification received! \n Message: ', message);
 };
 
+export const getAuctionRespond = async req => {
+  const {auctionId} = JSON.parse(req.toString());
+  try {
+    const auction = await getAuction(auctionId);
+    return Buffer.from(JSON.stringify(auction));
+  } catch (error) {
+    return Buffer.from(JSON.stringify({error: error.message}));
+  }
+};
+
 export default {
   createAuctionRespond,
   placeBidRespond,
   closeAuctionRespond,
   sendPublicKeyRespond,
   notifyPeersRespond,
+  getAuctionRespond,
 };

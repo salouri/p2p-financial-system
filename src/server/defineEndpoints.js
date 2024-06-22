@@ -5,18 +5,18 @@ import eventEmitter from '../common/events/eventEmitter.js';
 import state from '../common/state/index.js';
 import config from '../common/config/index.js';
 
-export async function defineLocalEndpoints(rline) {
+export async function defineServerEndpoints(rline) {
   rline.on('line', async input => {
     const [command, ...jsonData] = input.split(' ');
     try {
       let data = {};
       if (jsonData.length > 0) {
         const dataStr = jsonData.join(' ');
-        data = JSON.parse(
-          dataStr.replace(/([a-zA-Z0-9_]+?):/g, '"$1":').replace(/'/g, '"'),
-        );
+        data = JSON.parse(dataStr);
       }
       const message = data?.message || 'Broadcast message to all peers';
+      const auctionId = data?.AuctionId || '';
+
       switch (command) {
         case 'createMyAuction':
           const {localSellerId, localItem} = data;
@@ -32,12 +32,24 @@ export async function defineLocalEndpoints(rline) {
           );
           break;
 
-        case 'closeMyAuction':
-          const {localAuctionId} = data;
-          const localCloseAucRes = await respondHandlers.closeAuctionRespond(
-            Buffer.from(JSON.stringify({auctionId: localAuctionId})),
+        case 'getMyAuction':
+          const localAuctionRes = await respondHandlers.getAuctionRespond(
+            Buffer.from(JSON.stringify({auctionId})),
           );
-          console.log('Local Auction Closed:', localCloseAucRes.toString());
+          console.log(
+            'Auction Details:',
+            JSON.parse(localAuctionRes.toString()),
+          );
+          break;
+
+        case 'closeMyAuction':
+          const localCloseAucRes = await respondHandlers.closeAuctionRespond(
+            Buffer.from(JSON.stringify({auctionId})),
+          );
+          console.log(
+            'Auction Closed:',
+            JSON.parse(localCloseAucRes.toString()),
+          );
           break;
 
         case 'notifyPeers':
@@ -54,18 +66,22 @@ export async function defineLocalEndpoints(rline) {
   });
 }
 
-export async function defineServerEndpoints(rline, client) {
+export async function defineClientEndpoints(client, rline) {
   rline.on('line', async input => {
     const [command, ...jsonData] = input.split(' ');
     try {
       let data = {};
       if (jsonData.length > 0) {
         const dataStr = jsonData.join(' ');
-        data = JSON.parse(
-          dataStr.replace(/([a-zA-Z0-9_]+?):/g, '"$1":').replace(/'/g, '"'),
-        );
+        data = JSON.parse(dataStr);
       }
       const message = data?.message || 'Broadcast message to all peers';
+      const auctionId = data?.AuctionId || '';
+
+      if (state.connectedPeers.sellers.size === 0) {
+        console.log('No clients connected. Unable to execute this command.');
+        return;
+      }
 
       switch (command) {
         case 'sendPublicKey':
@@ -82,26 +98,32 @@ export async function defineServerEndpoints(rline, client) {
           console.log('Auction Created:', auctionResponse);
           break;
 
+        case 'getAuction':
+          const auctionRes = await requestHandlers.getAuctionRequest(
+            client,
+            auctionId,
+          );
+          console.log('Auction Details:', JSON.parse(auctionRes.toString()));
+          break;
+
         case 'placeBid':
-          const {auctionId, bidderId, amount} = data;
+          const {bidderId, amount} = data;
           const bidResponse = await requestHandlers.placeBidRequest(
             client,
             auctionId,
             bidderId,
             parseFloat(amount),
           );
-          console.log('Bid Placed:', JSON.parse(bidResponse.toString()));
+          console.log('Bid Placed:', bidResponse);
           break;
 
         case 'closeAuction':
-          const {auctionId: auctionToCloseId} = data;
           const closeAuctionResponse =
-            await requestHandlers.closeAuctionRequest(client, auctionToCloseId);
+            await requestHandlers.closeAuctionRequest(client, auctionId);
           console.log('Auction Closed:', closeAuctionResponse);
           break;
 
         default:
-          console.log(command, config.systemEndpoints.has(command));
           if (!config.systemEndpoints.has(command))
             console.log('Unknown command');
       }

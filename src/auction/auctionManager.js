@@ -17,6 +17,7 @@ export const createAuction = async (sellerId, item) => {
     await state.db.put(auctionId, auction); // Store auction object directly
     state.activeAuctions.set(auction.id, auction);
     eventEmitter.emit('auctionCreated', auction);
+    return auction;
   } catch (error) {
     console.error('Error saving auction to database!', error);
     throw error;
@@ -27,7 +28,8 @@ export const createAuction = async (sellerId, item) => {
 
 export const getAuction = async auctionId => {
   try {
-    const auction = await state.db.get(auctionId);
+    const auctionEntry = await state.db.get(auctionId);
+    const auction = auctionEntry.value;
     return auction;
   } catch (error) {
     console.error('Error retrieving auction from database!', error);
@@ -37,7 +39,7 @@ export const getAuction = async auctionId => {
 
 export const placeBid = async (auctionId, bidderId, amount) => {
   try {
-    const auction = await state.db.get(auctionId);
+    const auction = await getAuction(auctionId);
     if (auction) {
       if (auction.status === 'open') {
         const bid = {bidderId, amount, timestamp: Date.now()};
@@ -63,7 +65,7 @@ export const placeBid = async (auctionId, bidderId, amount) => {
 
 export const closeAuction = async auctionId => {
   try {
-    const auction = await state.db.get(auctionId);
+    const auction = await getAuction(auctionId);
     if (auction) {
       if (auction.status === 'open') {
         auction.status = 'closed';
@@ -79,7 +81,7 @@ export const closeAuction = async auctionId => {
     }
   } catch (error) {
     console.error('Error closing auction:', error);
-    throw error;
+    throw new Error(error.message);
   }
 };
 

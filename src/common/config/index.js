@@ -20,6 +20,8 @@ const config = {
     'notifyPeers',
     'closeMyAuction',
     'createMyAuction',
+    'getMyAuction',
+    'getAuction',
     'sendPublicKey',
     'createAuction',
     'closeAuction',

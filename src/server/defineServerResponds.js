@@ -22,4 +22,8 @@ export default async function defineServerResponds(rpcServer) {
   rpcServer.respond('notifyPeers', async req => {
     return await respondHandlers.notifyPeersRespond(req);
   });
+
+  rpcServer.respond('getAuction', async req =>
+    respondHandlers.getAuctionRespond(req),
+  );
 }

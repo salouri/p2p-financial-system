@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import {startNode} from './src/node-setup.js';
-import {loadKnownPeers} from './src/peer/manageKnownPeers.js';
+import {loadKnownPeers} from './src/network/index.js';
 import checkBootstrapNodes from './src/common/utils/checkBootstrapNodes.js';
 import config from './src/common/config/index.js';
 

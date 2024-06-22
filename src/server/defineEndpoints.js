@@ -2,7 +2,7 @@ import respondHandlers from './serverRespondHandler.js';
 import requestHandlers from '../peer/peerRequestHandler.js';
 import getAllPeers from '../peer/getAllPeers.js';
 
-export async function defineLocalEndpoints(rline, db, connectedPeers) {
+export async function defineLocalEndpoints(rline) {
   rline.on('line', async input => {
     const [command, ...jsonData] = input.split(' ');
     try {
@@ -21,8 +21,6 @@ export async function defineLocalEndpoints(rline, db, connectedPeers) {
           );
           const localAuctRes = await respondHandlers.createAuctionRespond(
             auctionBuffer,
-            db,
-            connectedPeers,
           );
           console.log(
             'Local Auction Created:',
@@ -34,8 +32,6 @@ export async function defineLocalEndpoints(rline, db, connectedPeers) {
           const {localAuctionId} = data;
           const localCloseAucRes = await respondHandlers.closeAuctionRespond(
             Buffer.from(JSON.stringify({auctionId: localAuctionId})),
-            db,
-            connectedPeers,
           );
           console.log('Local Auction Closed:', localCloseAucRes.toString());
           break;
@@ -49,7 +45,7 @@ export async function defineLocalEndpoints(rline, db, connectedPeers) {
   });
 }
 
-export async function defineServerEndpoints(rline, client, db, connectedPeers) {
+export async function defineServerEndpoints(rline, client) {
   rline.on('line', async input => {
     const [command, ...jsonData] = input.split(' ');
     try {
@@ -66,7 +62,7 @@ export async function defineServerEndpoints(rline, client, db, connectedPeers) {
           break;
 
         case 'notifyPeers':
-          const allPeers = getAllPeers(connectedPeers);
+          const allPeers = getAllPeers();
           const message = data?.message || 'Broadcast message to all peers';
           await requestHandlers.notifyPeersRequest(allPeers, message);
           console.log(`Peers notified with message: "${message}"`);
@@ -89,8 +85,6 @@ export async function defineServerEndpoints(rline, client, db, connectedPeers) {
           );
           const localAuctRes = await respondHandlers.createAuctionRespond(
             auctionBuffer,
-            db,
-            connectedPeers,
           );
           console.log(
             'Local Auction Created:',
@@ -120,8 +114,6 @@ export async function defineServerEndpoints(rline, client, db, connectedPeers) {
           const {localAuctionId} = data;
           const localCloseAucRes = await respondHandlers.closeAuctionRespond(
             Buffer.from(JSON.stringify({auctionId: localAuctionId})),
-            db,
-            connectedPeers,
           );
           console.log('Local Auction Closed:', localCloseAucRes.toString());
           break;

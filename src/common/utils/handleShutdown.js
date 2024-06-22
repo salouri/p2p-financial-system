@@ -2,11 +2,13 @@
 import {notifyPeersRequest} from '../../peer/peerRequestHandler.js';
 import {saveKnownPeers} from '../../peer/manageKnownPeers.js';
 import getAllPeers from '../../peer/getAllPeers.js';
-export default async function handleShutdown({swarm, db, storageDir, connectedPeers}) {
+import state from '../../common/state/index.js';
+
+export default async function handleShutdown(swarm, storageDir) {
   async function gracefulShutdown() {
-    const allPeers = getAllPeers(connectedPeers);
+    const allPeers = getAllPeers();
     try {
-      await db.close();
+      await state.db.close();
     } catch (error) {
       console.error('Error closing db:', error);
     }

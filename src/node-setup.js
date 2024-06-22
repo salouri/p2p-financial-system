@@ -18,11 +18,7 @@ import {
   getActiveAuctionsFromDb,
   getCachedActiveAuctions,
 } from './auction/auctionManager.js';
-
-const connectedPeers = {
-  bidders: new Map(),
-  sellers: new Map(),
-};
+import state from './common/state/index.js';
 
 export async function startNode(storageDir, knownPeers = null) {
   const swarm = new Hyperswarm();
@@ -32,6 +28,7 @@ export async function startNode(storageDir, knownPeers = null) {
   await dht.ready();
 
   const db = await initializeDb(storageDir); // uses shared keyPair
+  state.db = db;
   await getActiveAuctionsFromDb(db); // Populate activeAuctions cache at startup
 
   const rpc = new RPC({dht});
@@ -48,20 +45,20 @@ export async function startNode(storageDir, knownPeers = null) {
     input: process.stdin,
     output: process.stdout,
   });
-  await defineLocalEndpoints(rLine, db, connectedPeers);
+  await defineLocalEndpoints(rLine);
 
   // Handle RPC server events
   server.on('close', async () => {
     console.log('Server is closed');
     // Notify all connected peers and close all connections
-    const allPeers = getAllPeers(connectedPeers);
+    const allPeers = getAllPeers();
     requestHandlers.notifyPeersRequest(allPeers, 'Server is shutting down.');
     for (const {client} of allPeers) {
       client.destroy();
     }
     await swarm.destroy();
     console.log('All connections closed and swarm destroyed.');
-    await db.close(); // Ensure the database is closed properly
+    await state.db.close(); // Ensure the database is closed properly
     console.log('Database closed.');
     process.exit();
   });
@@ -69,13 +66,13 @@ export async function startNode(storageDir, knownPeers = null) {
   // When other nodes (as bidders) connect to this current one (seller)
   server.on('connection', async rpcClient => {
     console.log('Server received a new connection');
-    registerPeerEvents(rpcClient, connectedPeers, 'bidders');
+    registerPeerEvents(rpcClient, 'bidders');
     // Notify new peer about existing auctions using cached active auctions
     const activeAuctions = getCachedActiveAuctions();
     requestHandlers.notifyOnePeerRequest(rpcClient, {auctions: activeAuctions});
   });
 
-  await defineServerResponds(server, db, connectedPeers);
+  await defineServerResponds(server);
 
   swarm.on('connection', (socket, details) => {
     console.log('Swarm: Socket connection established');
@@ -93,10 +90,10 @@ export async function startNode(storageDir, knownPeers = null) {
 
       if (serverPublicKey) {
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
-        registerPeerEvents(client, connectedPeers, 'sellers');
+        registerPeerEvents(client, 'sellers');
 
         // Define server endpoints for clients/remote communication
-        await defineServerEndpoints(rLine, client, db, connectedPeers);
+        await defineServerEndpoints(rLine, client);
       }
     });
   });
@@ -116,7 +113,7 @@ export async function startNode(storageDir, knownPeers = null) {
       const peerKeyBuffer = Buffer.from(publicKey, 'hex');
       try {
         const peerRpc = rpc.connect(peerKeyBuffer);
-        registerPeerEvents(peerRpc, connectedPeers, 'sellers');
+        registerPeerEvents(peerRpc, 'sellers');
       } catch (error) {
         console.error(
           `Failed to connect to known peer with publicKey ${publicKey}:`,
@@ -127,5 +124,5 @@ export async function startNode(storageDir, knownPeers = null) {
   }
 
   console.log('Node is running');
-  handleShutdown({swarm, db, storageDir, connectedPeers});
+  handleShutdown(swarm, storageDir);
 }

@@ -1,7 +1,8 @@
 // peer/registerPeerEvents.js
 import getClientPublicKey from './getClientPublicKey.js';
+import state from '../common/state/index.js';
 
-export default function registerPeerEvents(client, connectedPeers, nodeType) {
+export default function registerPeerEvents(client, nodeType) {
   const publicKey = getClientPublicKey(client, nodeType);
 
   client.on('open', async () => {
@@ -12,16 +13,19 @@ export default function registerPeerEvents(client, connectedPeers, nodeType) {
         publicKey,
       ).substring(0, 15)}...`,
     );
-    connectedPeers[nodeType].set(publicKey, {client, timestamp: Date.now()});
+    state.connectedPeers[nodeType].set(publicKey, {
+      client,
+      timestamp: Date.now(),
+    });
   });
 
   client.on('close', () => {
-    connectedPeers[nodeType].delete(publicKey);
+    state.connectedPeers[nodeType].delete(publicKey);
     console.log('Peer connection closed');
   });
 
   client.on('destroy', () => {
-    connectedPeers[nodeType].delete(publicKey);
+    state.connectedPeers[nodeType].delete(publicKey);
     console.log('Peer connection destroyed');
   });
 }

@@ -1,8 +1,8 @@
 import {v4 as uuidv4} from 'uuid';
+import eventEmitter from '../common/events/eventEmitter.js';
+import state from '../common/state/index.js';
 
-const activeAuctions = new Map();
-
-export const createAuction = async (sellerId, item, db) => {
+export const createAuction = async (sellerId, item) => {
   const auctionId = uuidv4();
   const auction = {
     id: auctionId,
@@ -14,8 +14,10 @@ export const createAuction = async (sellerId, item, db) => {
   };
 
   try {
-    await db.put(auctionId, auction); // Store auction object directly
-    activeAuctions.set(auction.id, auction);
+    await state.db.put(auctionId, auction); // Store auction object directly
+    state.activeAuctions.set(auction.id, auction);
+    // Emit event for auction creation
+    eventEmitter.emit('auctionCreated', auction);
   } catch (error) {
     console.error('Error saving auction to database!', error);
     return {error: error.message};
@@ -24,9 +26,9 @@ export const createAuction = async (sellerId, item, db) => {
   return auction;
 };
 
-export const getAuction = async (auctionId, db) => {
+export const getAuction = async auctionId => {
   try {
-    const auction = await db.get(auctionId);
+    const auction = await state.db.get(auctionId);
     return auction;
   } catch (error) {
     console.error('Error retrieving auction from database!', error);
@@ -34,9 +36,9 @@ export const getAuction = async (auctionId, db) => {
   }
 };
 
-export const placeBid = async (auctionId, bidderId, amount, db) => {
+export const placeBid = async (auctionId, bidderId, amount) => {
   try {
-    const auction = await db.get(auctionId);
+    const auction = await state.db.get(auctionId);
     if (auction) {
       if (auction.status === 'open') {
         const bid = {bidderId, amount, timestamp: Date.now()};
@@ -44,8 +46,8 @@ export const placeBid = async (auctionId, bidderId, amount, db) => {
         if (!auction.highestBid || amount > auction.highestBid.amount) {
           auction.highestBid = bid;
         }
-        await db.put(auctionId, auction); // Update auction object directly
-        activeAuctions.set(auction.id, auction);
+        await state.db.put(auctionId, auction); // Update auction object directly
+        state.activeAuctions.set(auction.id, auction);
 
         return bid;
       } else {
@@ -62,7 +64,7 @@ export const placeBid = async (auctionId, bidderId, amount, db) => {
 
 export const closeAuction = async (auctionId, db) => {
   try {
-    const auction = await db.get(auctionId);
+    const auction = await state.db.get(auctionId);
     if (auction) {
       if (auction.status === 'open') {
         auction.status = 'closed';
@@ -71,8 +73,8 @@ export const closeAuction = async (auctionId, db) => {
           type: 'closeAuction',
           value: auction,
         });
-        await db.put(auctionId, auction); // Update auction as binary
-        activeAuctions.delete(auctionId);
+        await state.db.put(auctionId, auction); // Update auction as binary
+        state.activeAuctions.delete(auctionId);
 
         return auction;
       } else {
@@ -90,14 +92,14 @@ export const closeAuction = async (auctionId, db) => {
 export const getActiveAuctionsFromDb = async db => {
   const auctions = [];
   try {
-    for await (const {value} of db.createReadStream({
+    for await (const {value} of state.db.createReadStream({
       keys: false,
       values: true,
     })) {
       // value here is auction
       if (value.status === 'open') {
         auctions.push(value);
-        activeAuctions.set(value.id, value);
+        state.activeAuctions.set(value.id, value);
       }
     }
   } catch (error) {
@@ -108,5 +110,5 @@ export const getActiveAuctionsFromDb = async db => {
 };
 
 export const getCachedActiveAuctions = () => {
-  return Array.from(activeAuctions.values());
+  return Array.from(state.activeAuctions.values());
 };

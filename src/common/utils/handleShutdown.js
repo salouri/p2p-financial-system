@@ -1,5 +1,4 @@
 // common/utils/handleShutdown.js
-import {notifyPeersRequest} from '../../peer/peerRequestHandler.js';
 import {saveKnownPeers} from '../../peer/manageKnownPeers.js';
 import getAllPeers from '../../peer/getAllPeers.js';
 import state from '../../common/state/index.js';

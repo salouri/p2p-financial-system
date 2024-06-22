@@ -3,6 +3,7 @@ import {
   placeBid,
   closeAuction,
 } from '../auction/auctionManager.js';
+import eventEmitter from '../common/events/eventEmitter.js';
 
 export const createAuctionRespond = async req => {
   const {sellerId, item} = JSON.parse(req.toString());
@@ -43,7 +44,6 @@ export const sendPublicKeyRespond = publicKey => {
 export const notifyPeersRespond = req => {
   const {message} = JSON.parse(req.toString());
   console.log('>>> Notification received! \n Message: ', message);
-  eventEmitter.emit('notifyPeers', message); // Emit notifyPeers event
 };
 
 export default {

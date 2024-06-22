@@ -3,6 +3,7 @@ import requestHandlers from '../peer/peerRequestHandler.js';
 import getAllPeers from '../peer/getAllPeers.js';
 import eventEmitter from '../common/events/eventEmitter.js';
 import state from '../common/state/index.js';
+import config from '../common/config/index.js';
 
 export async function defineLocalEndpoints(rline) {
   rline.on('line', async input => {
@@ -15,8 +16,9 @@ export async function defineLocalEndpoints(rline) {
           dataStr.replace(/([a-zA-Z0-9_]+?):/g, '"$1":').replace(/'/g, '"'),
         );
       }
+      const message = data?.message || 'Broadcast message to all peers';
       switch (command) {
-        case 'createAuction-local':
+        case 'createMyAuction':
           const {localSellerId, localItem} = data;
           const auctionBuffer = Buffer.from(
             JSON.stringify({sellerId: localSellerId, item: localItem}),
@@ -30,7 +32,7 @@ export async function defineLocalEndpoints(rline) {
           );
           break;
 
-        case 'closeAuction-local':
+        case 'closeMyAuction':
           const {localAuctionId} = data;
           const localCloseAucRes = await respondHandlers.closeAuctionRespond(
             Buffer.from(JSON.stringify({auctionId: localAuctionId})),
@@ -38,8 +40,13 @@ export async function defineLocalEndpoints(rline) {
           console.log('Local Auction Closed:', localCloseAucRes.toString());
           break;
 
+        case 'notifyPeers':
+          eventEmitter.emit('notifyPeers', message);
+          break;
+
         default:
-          console.log('Unknown command');
+          if (!config.systemEndpoints.has(command))
+            console.log('Unknown command');
       }
     } catch (error) {
       console.error('Error processing command:', error);
@@ -65,15 +72,6 @@ export async function defineServerEndpoints(rline, client) {
           await requestHandlers.sendPublicKeyRequest(client);
           break;
 
-        case 'notifyPeers':
-          const allPeers = getAllPeers();
-          await requestHandlers.notifyPeersRequest(allPeers, message);
-          break;
-
-        case 'notifyMyPeers':
-          eventEmitter.emit('notifyPeers', message);
-          break;
-
         case 'createAuction':
           const {sellerId, item} = data;
           const auctionResponse = await requestHandlers.createAuctionRequest(
@@ -82,20 +80,6 @@ export async function defineServerEndpoints(rline, client) {
             item,
           );
           console.log('Auction Created:', auctionResponse);
-          break;
-
-        case 'createMyAuction':
-          const {localSellerId, localItem} = data;
-          const auctionBuffer = Buffer.from(
-            JSON.stringify({sellerId: localSellerId, item: localItem}),
-          );
-          const localAuctRes = await respondHandlers.createAuctionRespond(
-            auctionBuffer,
-          );
-          console.log(
-            'Local Auction Created:',
-            JSON.parse(localAuctRes.toString()),
-          );
           break;
 
         case 'placeBid':
@@ -116,16 +100,10 @@ export async function defineServerEndpoints(rline, client) {
           console.log('Auction Closed:', closeAuctionResponse);
           break;
 
-        case 'closeMyAuction':
-          const {localAuctionId} = data;
-          const localCloseAucRes = await respondHandlers.closeAuctionRespond(
-            Buffer.from(JSON.stringify({auctionId: localAuctionId})),
-          );
-          console.log('Local Auction Closed:', localCloseAucRes.toString());
-          break;
-
         default:
-          console.log('Unknown command');
+          console.log(command, config.systemEndpoints.has(command));
+          if (!config.systemEndpoints.has(command))
+            console.log('Unknown command');
       }
     } catch (error) {
       console.error('Error processing command:', error);

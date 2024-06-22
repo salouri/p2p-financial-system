@@ -34,12 +34,26 @@ eventEmitter.on('serverShutdown', () => {
 });
 
 eventEmitter.on('notifyPeers', message => {
-  broadcastMessageToPeers(message);
+  const allPeers = getAllPeers();
+  for (const {client} of allPeers) {
+    try {
+      client.event('notifyPeers', Buffer.from(JSON.stringify({message})));
+    } catch (error) {
+      console.error('Error notifying peer:', error);
+    }
+  }
+
+  console.log(`Peers notified with message: "${message}".`);
 });
 
-eventEmitter.on('peerConnected', rpcClient => {
+eventEmitter.on('peerConnected', client => {
   const activeAuctions = getCachedActiveAuctions();
-  requestHandlers.notifyOnePeerRequest(rpcClient, {auctions: activeAuctions});
+  const message = {auctions: activeAuctions};
+  try {
+    client.event('notifyPeers', Buffer.from(JSON.stringify({message})));
+  } catch (error) {
+    console.error('Error notifying peer:', error);
+  }
 });
 
 export default eventEmitter;

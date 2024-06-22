@@ -16,6 +16,15 @@ const config = {
     publicKey: Buffer.from(process.env.PUBLIC_KEY, 'hex'),
     secretKey: Buffer.from(process.env.SECRET_KEY, 'hex'),
   },
+  systemEndpoints: new Set([
+    'notifyPeers',
+    'closeMyAuction',
+    'createMyAuction',
+    'sendPublicKey',
+    'createAuction',
+    'closeAuction',
+    'placeBid',
+  ]),
 };
 
 export default config;

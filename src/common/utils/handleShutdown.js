@@ -1,8 +1,8 @@
 // common/utils/handleShutdown.js
-import {saveKnownPeers} from '../../peer/manageKnownPeers.js';
+import {saveKnownPeers} from '../../network/index.js';
 import getAllPeers from '../../peer/getAllPeers.js';
 import state from '../../common/state/index.js';
-import eventEmitter from '../events/eventHandlers.js';
+import eventEmitter from '../events/eventEmitter.js';
 
 export default async function handleShutdown(swarm, storageDir) {
   async function gracefulShutdown() {

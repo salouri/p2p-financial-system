@@ -16,13 +16,16 @@ export function loadKnownPeers(storageDir, keyPair) {
 
 export const saveKnownPeers = (storageDir, peers) => {
   const filePath = path.join(storageDir, FILE_NAME);
+  const dirPath = path.dirname(filePath);
 
   const prunedPeers = peers.map(peer => {
     publicKey: peer.publicKey;
     timestamp: peer.timestamp;
   });
-  if (fs.existsSync(filePath))
-    fs.writeFileSync(filePath, JSON.stringify(prunedPeers, null, 2));
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, {recursive: true});
+  }
+  fs.writeFileSync(filePath, JSON.stringify(prunedPeers, null, 2));
 };
 
 export default {loadKnownPeers, saveKnownPeers};

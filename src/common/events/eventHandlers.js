@@ -4,13 +4,16 @@ import getAllPeers from '../../peer/getAllPeers.js';
 import requestHandlers from '../../peer/peerRequestHandler.js';
 import {getCachedActiveAuctions} from '../../auction/auctionManager.js';
 // notify
-const broadcastMessageToPeers = (message, data = null) => {
+const broadcastMessageToPeers = (msg, data = null) => {
   const allPeers = getAllPeers();
-  if (allPeers.length)
-    requestHandlers.notifyPeersRequest(
-      allPeers,
-      `${message} ${data ? ':' + JSON.stringify(data) : '.'}`,
-    );
+  const message = `${msg} ${data ? ':' + JSON.stringify(data) : '.'}`;
+  for (const {client} of allPeers) {
+    try {
+      client.event('notifyPeers', Buffer.from(JSON.stringify({message})));
+    } catch (error) {
+      console.error('Error notifying peer:', error);
+    }
+  }
 };
 
 eventEmitter.on('auctionCreated', auction => {
@@ -34,15 +37,7 @@ eventEmitter.on('serverShutdown', () => {
 });
 
 eventEmitter.on('notifyPeers', message => {
-  const allPeers = getAllPeers();
-  for (const {client} of allPeers) {
-    try {
-      client.event('notifyPeers', Buffer.from(JSON.stringify({message})));
-    } catch (error) {
-      console.error('Error notifying peer:', error);
-    }
-  }
-
+  broadcastMessageToPeers(message, message?.data);
   console.log(`Peers notified with message: "${message}".`);
 });
 

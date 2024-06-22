@@ -3,6 +3,7 @@ import path from 'path';
 import {startNode} from './src/node-setup.js';
 import {loadKnownPeers} from './src/peer/manageKnownPeers.js';
 import checkBootstrapNodes from './src/common/utils/checkBootstrapNodes.js';
+import config from './src/common/config/index.js';
 
 dotenv.config();
 
@@ -11,12 +12,12 @@ if (await checkBootstrapNodes) {
 
   const [, , id, serverPublicKey] = process.argv;
 
-  let storageDir = path.join('.', 'storage', `node-${id}`);
+  let storagePath = path.join('.', config.storageDir, `node-${id}`);
 
   // Load previously connected peers, if any, from a file
-  const knownPeers = loadKnownPeers(storageDir);
+  const knownPeers = loadKnownPeers(storagePath);
 
-  await startNode(storageDir, serverPublicKey);
+  await startNode(storagePath, serverPublicKey);
 } else {
   console.error('No bootstrap nodes available!');
 }

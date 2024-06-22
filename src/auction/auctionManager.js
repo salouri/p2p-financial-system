@@ -16,11 +16,10 @@ export const createAuction = async (sellerId, item) => {
   try {
     await state.db.put(auctionId, auction); // Store auction object directly
     state.activeAuctions.set(auction.id, auction);
-    // Emit event for auction creation
     eventEmitter.emit('auctionCreated', auction);
   } catch (error) {
     console.error('Error saving auction to database!', error);
-    return {error: error.message};
+    throw error;
   }
 
   return auction;
@@ -32,7 +31,7 @@ export const getAuction = async auctionId => {
     return auction;
   } catch (error) {
     console.error('Error retrieving auction from database!', error);
-    return {error: error.message};
+    throw error;
   }
 };
 
@@ -48,7 +47,7 @@ export const placeBid = async (auctionId, bidderId, amount) => {
         }
         await state.db.put(auctionId, auction); // Update auction object directly
         state.activeAuctions.set(auction.id, auction);
-
+        eventEmitter.emit('bidPlaced', bid);
         return bid;
       } else {
         throw new Error('Auction is already closed');
@@ -58,24 +57,19 @@ export const placeBid = async (auctionId, bidderId, amount) => {
     }
   } catch (error) {
     console.error('Error placing bid:', error);
-    return {error: error.message};
+    throw error;
   }
 };
 
-export const closeAuction = async (auctionId, db) => {
+export const closeAuction = async auctionId => {
   try {
     const auction = await state.db.get(auctionId);
     if (auction) {
       if (auction.status === 'open') {
         auction.status = 'closed';
-
-        const logRecord = JSON.stringify({
-          type: 'closeAuction',
-          value: auction,
-        });
         await state.db.put(auctionId, auction); // Update auction as binary
         state.activeAuctions.delete(auctionId);
-
+        eventEmitter.emit('auctionClosed', auction);
         return auction;
       } else {
         throw new Error('Auction is already closed');
@@ -85,11 +79,11 @@ export const closeAuction = async (auctionId, db) => {
     }
   } catch (error) {
     console.error('Error closing auction:', error);
-    return {error: error.message};
+    throw error;
   }
 };
 
-export const getActiveAuctionsFromDb = async db => {
+export const getActiveAuctionsFromDb = async () => {
   const auctions = [];
   try {
     for await (const {value} of state.db.createReadStream({

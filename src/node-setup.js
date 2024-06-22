@@ -19,6 +19,8 @@ import {
   getCachedActiveAuctions,
 } from './auction/auctionManager.js';
 import state from './common/state/index.js';
+import eventEmitter from './common/events/eventEmitter.js';
+import './common/events/eventHandlers.js';
 
 export async function startNode(storageDir, knownPeers = null) {
   const swarm = new Hyperswarm();
@@ -51,8 +53,7 @@ export async function startNode(storageDir, knownPeers = null) {
   server.on('close', async () => {
     console.log('Server is closed');
     // Notify all connected peers and close all connections
-    const allPeers = getAllPeers();
-    requestHandlers.notifyPeersRequest(allPeers, 'Server is shutting down.');
+    eventEmitter.emit('serverShutdown');
     for (const {client} of allPeers) {
       client.destroy();
     }
@@ -67,9 +68,7 @@ export async function startNode(storageDir, knownPeers = null) {
   server.on('connection', async rpcClient => {
     console.log('Server received a new connection');
     registerPeerEvents(rpcClient, 'bidders');
-    // Notify new peer about existing auctions using cached active auctions
-    const activeAuctions = getCachedActiveAuctions();
-    requestHandlers.notifyOnePeerRequest(rpcClient, {auctions: activeAuctions});
+    eventEmitter.emit('peerConnected', rpcClient);
   });
 
   await defineServerResponds(server);

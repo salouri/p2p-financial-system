@@ -18,14 +18,13 @@ eventEmitter.on('auctionCreated', auction => {
 });
 
 eventEmitter.on('bidPlaced', bid => {
-  broadcastMessageToPeers(bid, 'New bid placed');
+  broadcastMessageToPeers('New bid placed', bid);
 });
 
 eventEmitter.on('auctionClosed', auction => {
   broadcastMessageToPeers('Auction closed', auction);
 });
 
-// Define the handler for serverShutdown event
 eventEmitter.on('serverShutdown', () => {
   broadcastMessageToPeers('Server is shutting down.');
   const allPeers = getAllPeers();
@@ -39,7 +38,6 @@ eventEmitter.on('notifyPeers', message => {
 });
 
 eventEmitter.on('peerConnected', rpcClient => {
-  // Notify new peer about existing auctions using cached active auctions
   const activeAuctions = getCachedActiveAuctions();
   requestHandlers.notifyOnePeerRequest(rpcClient, {auctions: activeAuctions});
 });

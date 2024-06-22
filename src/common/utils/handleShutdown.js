@@ -3,6 +3,7 @@ import {notifyPeersRequest} from '../../peer/peerRequestHandler.js';
 import {saveKnownPeers} from '../../peer/manageKnownPeers.js';
 import getAllPeers from '../../peer/getAllPeers.js';
 import state from '../../common/state/index.js';
+import eventEmitter from '../events/eventHandlers.js';
 
 export default async function handleShutdown(swarm, storageDir) {
   async function gracefulShutdown() {
@@ -14,7 +15,7 @@ export default async function handleShutdown(swarm, storageDir) {
     }
     try {
       if (allPeers) {
-        notifyPeersRequest(allPeers, 'Server is shutting down.');
+        eventEmitter.emit('serverShutdown');
         saveKnownPeers(storageDir, allPeers);
       }
     } catch (error) {

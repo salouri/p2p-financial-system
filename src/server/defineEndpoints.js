@@ -1,6 +1,8 @@
 import respondHandlers from './serverRespondHandler.js';
 import requestHandlers from '../peer/peerRequestHandler.js';
 import getAllPeers from '../peer/getAllPeers.js';
+import eventEmitter from '../common/events/eventEmitter.js';
+import state from '../common/state/index.js';
 
 export async function defineLocalEndpoints(rline) {
   rline.on('line', async input => {
@@ -56,6 +58,8 @@ export async function defineServerEndpoints(rline, client) {
           dataStr.replace(/([a-zA-Z0-9_]+?):/g, '"$1":').replace(/'/g, '"'),
         );
       }
+      const message = data?.message || 'Broadcast message to all peers';
+
       switch (command) {
         case 'sendPublicKey':
           await requestHandlers.sendPublicKeyRequest(client);
@@ -63,9 +67,11 @@ export async function defineServerEndpoints(rline, client) {
 
         case 'notifyPeers':
           const allPeers = getAllPeers();
-          const message = data?.message || 'Broadcast message to all peers';
           await requestHandlers.notifyPeersRequest(allPeers, message);
-          console.log(`Peers notified with message: "${message}"`);
+          break;
+
+        case 'notifyMyPeers':
+          eventEmitter.emit('notifyPeers', message);
           break;
 
         case 'createAuction':
@@ -78,7 +84,7 @@ export async function defineServerEndpoints(rline, client) {
           console.log('Auction Created:', auctionResponse);
           break;
 
-        case 'createAuction-local':
+        case 'createMyAuction':
           const {localSellerId, localItem} = data;
           const auctionBuffer = Buffer.from(
             JSON.stringify({sellerId: localSellerId, item: localItem}),
@@ -110,7 +116,7 @@ export async function defineServerEndpoints(rline, client) {
           console.log('Auction Closed:', closeAuctionResponse);
           break;
 
-        case 'closeAuction-local':
+        case 'closeMyAuction':
           const {localAuctionId} = data;
           const localCloseAucRes = await respondHandlers.closeAuctionRespond(
             Buffer.from(JSON.stringify({auctionId: localAuctionId})),

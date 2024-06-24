@@ -1,17 +1,16 @@
 // common/utils/handleShutdown.js
-import getAllPeers from '../../peer/getAllPeers.js';
 import state from '../../common/state/index.js';
 import eventEmitter from '../events/eventEmitter.js';
 import {savePeerConnections} from '../../network/index.js';
 
 export default async function handleShutdown(swarm, storageDir) {
   async function gracefulShutdown() {
-    const bidderPeers = state.connectedPeers?.bidders.values();
+    const peers = state.connectedPeers;
 
     try {
-      if (bidderPeers.length) {
+      if (peers.length) {
         eventEmitter.emit('serverShutdown');
-        await savePeerConnections(state.db, bidderPeers);
+        await savePeerConnections(state.db, peers);
       }
     } catch (error) {
       console.error('Error notifying peers or saving connected ones:', error);

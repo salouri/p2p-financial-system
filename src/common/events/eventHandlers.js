@@ -2,8 +2,7 @@ import eventEmitter from './eventEmitter.js';
 import state from '../state/index.js';
 import getAllPeers from '../../peer/getAllPeers.js';
 import requestHandlers from '../../peer/peerRequestHandler.js';
-import {getCachedActiveAuctions} from '../../auction/auctionManager.js';
-// notify
+
 const broadcastMessageToPeers = (msg, data = null) => {
   const allPeers = getAllPeers();
   const message = `${msg} ${data ? ':' + JSON.stringify(data) : '.'}`;
@@ -42,7 +41,7 @@ eventEmitter.on('notifyPeers', message => {
 });
 
 eventEmitter.on('peerConnected', client => {
-  const activeAuctions = getCachedActiveAuctions();
+  const activeAuctions = state.auctionManager.getCachedActiveAuctions();
   const message = {auctions: activeAuctions};
   try {
     client.event('notifyPeers', Buffer.from(JSON.stringify({message})));

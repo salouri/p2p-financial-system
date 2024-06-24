@@ -4,7 +4,7 @@ export async function loadPrevConnections(db = state?.db) {
   try {
     const connectionsEntry = await db.get('previous-connections');
     const peerConnections = connectionsEntry?.value;
-    await db.del('previous-peer-connections'); // Reset the value after reading it
+    await db.del('previous-connections'); // Reset the value after reading it
     return peerConnections || [];
   } catch (error) {
     console.error('Error loading peer connections from database:', error);
@@ -13,6 +13,8 @@ export async function loadPrevConnections(db = state?.db) {
 }
 
 export async function savePeerConnections(db = state?.db, peers) {
+  const peersKeys = [...peers.keys()];
+  console.log('saving to db: ', peersKeys);
   try {
     await db.put('previous-connections', JSON.stringify(peers));
   } catch (error) {

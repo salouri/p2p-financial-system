@@ -1,4 +1,3 @@
-// network/networkManager.js
 import RPC from '@hyperswarm/rpc';
 import DHT from 'hyperdht';
 import Hyperswarm from 'hyperswarm';
@@ -28,6 +27,7 @@ export const startNetwork = async (storageDir, rLine) => {
 
   // Initialize Hyperbee database
   const db = await initializeDb(storageDir);
+  state.db = db; // Assigning the database to global state
 
   // Retrieve or generate DHT seed
   let dhtSeed = (await db.get('dht-seed'))?.value;
@@ -66,7 +66,7 @@ export const startNetwork = async (storageDir, rLine) => {
   if (prevPeers?.length) {
     prevPeers.forEach(peer => {
       const client = rpc.connect(Buffer.from(peer.publicKey, 'hex'));
-      registerPeerEvents(client, 'bidders');
+      registerPeerEvents(client);
       console.log(`Reconnected to previous peer: ${peer.publicKey}`);
     });
   }
@@ -75,7 +75,8 @@ export const startNetwork = async (storageDir, rLine) => {
   server.on('close', async () => {
     console.log('Server is closed');
     eventEmitter.emit('serverShutdown');
-    for (const {client} of getAllPeers()) {
+    const allPeers = [...state.connectedPeers.values()];
+    for (const {client} of allPeers) {
       client.destroy();
     }
     await swarm.destroy();
@@ -85,10 +86,10 @@ export const startNetwork = async (storageDir, rLine) => {
     process.exit();
   });
 
-  // When other nodes (as bidders) connect to this current one (seller)
+  // When other nodes connect to this current one
   server.on('connection', async rpcClient => {
     console.log('Server received a new connection');
-    registerPeerEvents(rpcClient, 'bidders');
+    registerPeerEvents(rpcClient);
     eventEmitter.emit('peerConnected', rpcClient);
   });
 
@@ -108,7 +109,7 @@ export const startNetwork = async (storageDir, rLine) => {
 
       if (serverPublicKey) {
         const client = rpc.connect(Buffer.from(serverPublicKey, 'hex'));
-        registerPeerEvents(client, 'sellers');
+        registerPeerEvents(client);
         // Define endpoints for clients/remote communication
         await defineClientEndpoints(client, rLine);
       }

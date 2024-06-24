@@ -1,6 +1,5 @@
 import respondHandlers from './serverRespondHandler.js';
 import requestHandlers from '../peer/peerRequestHandler.js';
-import getAllPeers from '../peer/getAllPeers.js';
 import eventEmitter from '../common/events/eventEmitter.js';
 import state from '../common/state/index.js';
 import config from '../common/config/index.js';
@@ -12,43 +11,34 @@ export async function defineServerEndpoints(rline) {
       let data = {};
       if (jsonData.length > 0) {
         const dataStr = jsonData.join(' ');
-        data = JSON.parse(dataStr);
+        data = JSON.parse(dataStr || '{}');
       }
       const message = data?.message || 'Broadcast message to all peers';
-      const auctionId = data?.AuctionId || '';
+      const transactionId = data?.TransactionId || '';
 
       switch (command) {
-        case 'createMyAuction':
+        case 'sendMyTransaction':
           const {localSellerId, localItem} = data;
-          const auctionBuffer = Buffer.from(
-            JSON.stringify({sellerId: localSellerId, item: localItem}),
+          const transactionBuffer = Buffer.from(
+            JSON.stringify({receiverId: localSellerId, item: localItem}),
           );
-          const localAuctRes = await respondHandlers.createAuctionRespond(
-            auctionBuffer,
+          const localTransRes = await respondHandlers.sendTransactionRespond(
+            transactionBuffer,
           );
           console.log(
-            'Local Auction Created:',
-            JSON.parse(localAuctRes.toString()),
+            'Local Transaction Details:',
+            JSON.parse(localTransRes.toString()),
           );
           break;
 
-        case 'getMyAuction':
-          const localAuctionRes = await respondHandlers.getAuctionRespond(
-            Buffer.from(JSON.stringify({auctionId})),
-          );
+        case 'getMyTransaction':
+          const localTransactionRes =
+            await respondHandlers.getTransactionRespond(
+              Buffer.from(JSON.stringify({transactionId})),
+            );
           console.log(
-            'Auction Details:',
-            JSON.parse(localAuctionRes.toString()),
-          );
-          break;
-
-        case 'closeMyAuction':
-          const localCloseAucRes = await respondHandlers.closeAuctionRespond(
-            Buffer.from(JSON.stringify({auctionId})),
-          );
-          console.log(
-            'Auction Closed:',
-            JSON.parse(localCloseAucRes.toString()),
+            'Transaction Details:',
+            JSON.parse(localTransactionRes.toString()),
           );
           break;
 
@@ -76,9 +66,9 @@ export async function defineClientEndpoints(client, rline) {
         data = JSON.parse(dataStr);
       }
       const message = data?.message || 'Broadcast message to all peers';
-      const auctionId = data?.AuctionId || '';
+      const transactionId = data?.TransactionId || '';
 
-      if (state.connectedPeers.sellers.size === 0) {
+      if (state.connectedPeers.size === 0) {
         console.log('No clients connected. Unable to execute this command.');
         return;
       }
@@ -88,39 +78,25 @@ export async function defineClientEndpoints(client, rline) {
           await requestHandlers.sendPublicKeyRequest(client);
           break;
 
-        case 'createAuction':
-          const {sellerId, item} = data;
-          const auctionResponse = await requestHandlers.createAuctionRequest(
+        case 'sendTransaction':
+          const {receiverId, item} = data;
+          const auctionResponse = await requestHandlers.sendTransactionRequest(
             client,
-            sellerId,
+            receiverId,
             item,
           );
-          console.log('Auction Created:', auctionResponse);
+          console.log('Transaction Created:', auctionResponse);
           break;
 
-        case 'getAuction':
-          const auctionRes = await requestHandlers.getAuctionRequest(
+        case 'getTransaction':
+          const auctionRes = await requestHandlers.getTransactionRequest(
             client,
-            auctionId,
+            transactionId,
           );
-          console.log('Auction Details:', JSON.parse(auctionRes.toString()));
-          break;
-
-        case 'placeBid':
-          const {bidderId, amount} = data;
-          const bidResponse = await requestHandlers.placeBidRequest(
-            client,
-            auctionId,
-            bidderId,
-            parseFloat(amount),
+          console.log(
+            'Transaction Details:',
+            JSON.parse(auctionRes.toString()),
           );
-          console.log('Bid Placed:', bidResponse);
-          break;
-
-        case 'closeAuction':
-          const closeAuctionResponse =
-            await requestHandlers.closeAuctionRequest(client, auctionId);
-          console.log('Auction Closed:', closeAuctionResponse);
           break;
 
         default:

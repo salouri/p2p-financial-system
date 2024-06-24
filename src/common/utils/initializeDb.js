@@ -1,23 +1,15 @@
 // common/utils/initializeDb.js
 import Hyperbee from 'hyperbee';
 import Hypercore from 'hypercore';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import RAM from 'random-access-memory';
+import config from '../config/index.js';
 
 // Function to initialize a Hyperbee instance
-export async function initializeDb({
-  storageDir,
-  keyPair,
-  valueEncoding = 'json',
-}) {
-  if (!keyPair) {
-    keyPair = {
-      publicKey: Buffer.from(process.env.PUBLIC_KEY, 'hex'),
-      secretKey: Buffer.from(process.env.SECRET_KEY, 'hex'),
-    };
-  }
-  const core = new Hypercore(storageDir, keyPair, {valueEncoding});
+const initializeDb = async (storageDir, valueEncoding = 'json') => {
+  // fixed shared keyPair ensures replicated feed among peers
+  const storageLoc = config.inDevelopment ? () => new RAM() : storageDir;
+
+  const core = new Hypercore(storageLoc, config.keyPair, {valueEncoding});
   await core.ready();
 
   const db = new Hyperbee(core, {
@@ -26,5 +18,7 @@ export async function initializeDb({
   });
   await db.ready();
 
-  return {core, db};
-}
+  return db;
+};
+
+export default initializeDb;

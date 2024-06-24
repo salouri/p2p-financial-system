@@ -1,75 +1,76 @@
+export const createAuctionRequest = async (client, sellerId, item) => {
+  try {
+    const requestPayload = Buffer.from(JSON.stringify({sellerId, item}));
+    const response = await client.request('createAuction', requestPayload);
+    return JSON.parse(response.toString());
+  } catch (error) {
+    console.error('Error: creating auction', error.message);
+    return processRequestError(error);
+  }
+};
+export const placeBidRequest = async (client, auctionId, bidderId, amount) => {
+  try {
+    const requestPayload = Buffer.from(
+      JSON.stringify({auctionId, bidderId, amount}),
+    );
+    const response = await client.request('placeBid', requestPayload);
+    return JSON.parse(response.toString());
+  } catch (error) {
+    console.error('Error: placing a bid', error.message);
+    return processRequestError(error);
+  }
+};
+
+export const closeAuctionRequest = async (client, auctionId) => {
+  try {
+    const requestPayload = Buffer.from(JSON.stringify({auctionId}));
+    const response = await client.request('closeAuction', requestPayload);
+    return JSON.parse(response.toString());
+  } catch (error) {
+    console.error('Error: closing auction', error.message);
+    return processRequestError(error);
+  }
+};
+
 export const sendPublicKeyRequest = async client => {
   try {
-    console.log('Requesting Peer-Public-Key...');
+    console.log('Requesting Public-Key from remote node...');
     const response = await client.request('sendPublicKey', Buffer.alloc(0));
     const parsedRes = JSON.parse(response?.toString() || '{}');
     const {publicKey} = parsedRes;
     console.log('Received Peer Public Key: ', publicKey);
     return publicKey;
   } catch (error) {
-    console.error('Error receiving peer public key:', error);
+    console.error('Error receiving peer public key:', error.message);
+    return processRequestError(error);
   }
 };
 
-export const getTransactionRequest = async (client, index) => {
-  if (index === undefined) {
-    console.error('Invalid getTransaction command');
-    return;
-  }
+export const getAuctionRequest = async (client, auctionId) => {
   try {
-    console.log('Requesting Transaction...');
-    const getTransactionRes = await client.request(
-      'getTransaction',
-      Buffer.from(JSON.stringify({index})),
-    );
-    const parsedRes = JSON.parse(getTransactionRes.toString());
-    const transaction = parsedRes.value;
-    console.log('Transaction: ', transaction);
-    return transaction;
+    const requestBuffer = Buffer.from(JSON.stringify({auctionId}));
+    const responseBuffer = await client.request('getAuction', requestBuffer);
+    return responseBuffer;
   } catch (error) {
-    console.error('Error receiving transaction:', error);
+    console.error('Error requesting auction:', error.message);
+    return processRequestError(error);
   }
 };
 
-export const sendTransactionRequest = async (
-  client,
-  transactionInfo,
-  core,
-  db,
-) => {
-  const {sender, receiver, amount} = transactionInfo;
-  if (!sender || !receiver || !amount) {
-    console.error('Invalid sendTransaction command');
-    return;
+function processRequestError(error) {
+  if (error.code === 'CHANNEL_CLOSED') {
+    console.error('CHANNEL_CLOSED: channel closed');
+    return {error: 'Channel closed'};
+  } else {
+    console.error('Error in createAuctionRequest:', error.message);
+    return {error: error.message};
   }
-  try {
-    console.log('Sending Transaction...');
-    const sendTransactionRes = await client.request(
-      'sendTransaction',
-      Buffer.from(JSON.stringify({...transactionInfo})),
-    );
-    const parsedRes = JSON.parse(sendTransactionRes.toString());
-    const {status, transaction, index} = parsedRes;
-    console.log('Transaction sent: ', parsedRes);
+}
 
-    return parsedRes;
-  } catch (error) {
-    console.error('Error sending transaction:', error);
-  }
-};
-
-export const notifyPeersRequest = async (peers, message) => {
-  for (const {client} of peers) {
-    try {
-      client.event('notifyPeers', Buffer.from(JSON.stringify({message})));
-    } catch (error) {
-      console.error('Error notifying peer:', error);
-    }
-  }
-};
 export default {
-  sendTransactionRequest,
-  getTransactionRequest,
+  createAuctionRequest,
+  placeBidRequest,
+  closeAuctionRequest,
   sendPublicKeyRequest,
-  notifyPeersRequest,
+  getAuctionRequest,
 };

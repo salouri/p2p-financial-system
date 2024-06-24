@@ -1,8 +1,6 @@
-// node-setup.js
-import RPC from '@hyperswarm/rpc';
-import DHT from 'hyperdht';
-import Hyperswarm from 'hyperswarm';
+import {startNetwork} from './network/index.js';
 import readline from 'readline';
+<<<<<<< HEAD
 import {
   bootstrapNodes,
   commonTopic,
@@ -19,27 +17,39 @@ const connectedPeers = {
   senders: new Map(),
   receivers: new Map(),
 };
+=======
+import handleShutdown from './common/utils/handleShutdown.js';
+import initializeDb from './common/utils/initializeDb.js';
+import {defineServerEndpoints} from './server/defineEndpoints.js';
+import AuctionManager from './auction/auctionManager.js';
+import defineServerResponds from './server/defineServerResponds.js';
+import state from './common/state/index.js';
+import eventEmitter from './common/events/eventEmitter.js';
+import './common/events/eventHandlers.js';
 
-export async function startNode(storageDir, knownPeers = null) {
-  const swarm = new Hyperswarm();
+export async function startNode(storageDir) {
+  // Initialize the database first
+  const db = await initializeDb(storageDir);
+  state.db = db; // Populate state with db
+>>>>>>> p2p_auction
 
-  const keyPair = generateKeyPair();
-  const dht = new DHT({keyPair, bootstrap: bootstrapNodes});
-  await dht.ready();
+  // Create AuctionManager instance
+  const auctionManager = new AuctionManager(
+    state.db,
+    state.activeAuctions,
+    eventEmitter,
+  );
+  state.auctionManager = auctionManager; // Store auctionManager in state for global access
 
-  const {core, db} = await initializeDb({storageDir}); // uses shared keyPair
-  const rpc = new RPC({dht, keyPair});
+  await auctionManager.getActiveAuctionsFromDb(db); // Populate activeAuctions cache at startup
 
-  const server = rpc.createServer();
-  await server.listen();
-  const serverPublicKey = server.publicKey.toString('hex');
-  console.log('Node Public Key:', serverPublicKey);
-
-  // Handle RPC server events
-  server.on('listening', () => {
-    console.log('Server is listening...');
+  // Initialize readline interface for user input
+  const rLine = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
   });
 
+<<<<<<< HEAD
   server.on('close', () => {
     console.log('Server is closed');
     // Notify all connected peers and close all connections
@@ -180,4 +190,15 @@ function getAllPeers(connectedPeers) {
   }
 
   return Array.from(allPeers);
+=======
+  // Start the network with storageDir and rLine
+  const {swarm, rpc, server} = await startNetwork(storageDir, rLine);
+
+  // Define server responses and endpoints
+  await defineServerResponds(server);
+  await defineServerEndpoints(rLine);
+
+  console.log('Node is running');
+  handleShutdown(swarm, storageDir);
+>>>>>>> p2p_auction
 }

@@ -1,69 +1,67 @@
-export const sendTransactionRespond = async (req, core, db) => {
-  let response;
+import {
+  createAuction,
+  placeBid,
+  closeAuction,
+  getAuction,
+} from '../auction/auctionManager.js';
+import eventEmitter from '../common/events/eventEmitter.js';
+
+export const createAuctionRespond = async req => {
+  const {sellerId, item} = JSON.parse(req.toString());
   try {
-    const data = JSON.parse(req.toString());
-    console.log('Transaction Info:', data);
-    const {sender, receiver, amount} = data;
-    const transaction = {...data, timeStamp: Date.now()};
-    const logRecord = JSON.stringify({
-      type: 'transaction',
-      value: transaction,
-    });
-    await core.append(logRecord);
-    if (db) {
-      try {
-        const transactionKey = transaction.timeStamp.toString();
-        const transactionValue = transaction;
-        await db.put(transactionKey, transactionValue);
-      } catch (error) {
-        console.error(error);
-      }
-    }
-    response = {
-      status: true,
-      transaction: {...transaction},
-      index: core.length - 1,
-    };
+    const auction = await createAuction(sellerId, item);
+    return Buffer.from(JSON.stringify(auction));
   } catch (error) {
-    console.error('Error sending transaction:', error);
-    response = {status: false, error: error.message};
+    return Buffer.from(JSON.stringify({error: error.message}));
   }
-  return Buffer.from(JSON.stringify(response));
 };
 
-export const getTransactionRespond = async (req, core) => {
-  let response;
+export const placeBidRespond = async req => {
+  const {auctionId, bidderId, amount} = JSON.parse(req.toString());
   try {
-    console.log(
-      'Received request for transaction:',
-      JSON.parse(req.toString()),
-    );
-    const {index} = JSON.parse(req.toString());
-    console.log('index: ', index);
-    const dataBuffer = await core.get(index);
-    response = JSON.parse(dataBuffer.toString());
-    console.log('Retrieved transaction:', data);
+    const bid = await placeBid(auctionId, bidderId, amount);
+    return Buffer.from(JSON.stringify(bid));
   } catch (error) {
-    console.error('Error getting transaction:', error);
-    response = {status: false, error: error.message};
+    return Buffer.from(JSON.stringify({error: error.message}));
   }
-  return Buffer.from(JSON.stringify(response));
+};
+
+export const closeAuctionRespond = async req => {
+  const {auctionId} = JSON.parse(req.toString());
+  try {
+    const auction = await closeAuction(auctionId);
+    return Buffer.from(JSON.stringify(auction));
+  } catch (error) {
+    return Buffer.from(JSON.stringify({error: error.message}));
+  }
 };
 
 export const sendPublicKeyRespond = publicKey => {
   console.log('Received request for sending public key');
-
   console.log(`Sending public key: ${publicKey.substring(0, 10)}...`);
   return Buffer.from(JSON.stringify({publicKey}));
 };
 
 export const notifyPeersRespond = req => {
   const {message} = JSON.parse(req.toString());
-  console.log('>>> Notificaiton received! \n Message: ', message);
+  console.log('>>> Notification received! \n Message: ', message);
 };
+
+export const getAuctionRespond = async req => {
+  const {auctionId} = JSON.parse(req.toString());
+  try {
+    const auction = await getAuction(auctionId);
+    return Buffer.from(JSON.stringify(auction));
+  } catch (error) {
+    return Buffer.from(JSON.stringify({error: error.message}));
+  }
+};
+
 export default {
-  sendTransactionRespond,
-  getTransactionRespond,
+  createAuctionRespond,
+  placeBidRespond,
+  closeAuctionRespond,
   sendPublicKeyRespond,
   notifyPeersRespond,
+  getAuctionRespond,
 };

@@ -7,10 +7,6 @@ export default function registerSocketEvents(socket) {
     console.log('---- Socket Connection closed');
   });
 
-  socket.on('data', data => {
-    console.log('---- Received data:', data.toString());
-  });
-
   socket.on('error', err => {
     console.error('---- Socket Connection error:', err);
   });

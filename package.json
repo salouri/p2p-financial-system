@@ -1,10 +1,12 @@
 {
-  "name": "DecentraPay",
+  "name": "p2p-auction",
   "version": "1.0.0",
-  "description": "\"# p2p-financial-system\"",
+  "description": "\"# p2p-auction solution\"",
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "bootstrap": "hyperdht --bootstrap --host 127.0.0.1 --port 30001",
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,9 +15,11 @@
   "dependencies": {
     "@hyperswarm/rpc": "^3.3.2",
     "dotenv": "^16.4.5",
-    "hyperbee": "^2.19.6",
+    "hyperbee": "^2.19.7",
     "hypercore": "^10.37.7",
     "hyperdht": "^6.15.1",
-    "hyperswarm": "^4.7.15"
+    "hyperswarm": "^4.7.15",
+    "random-access-memory": "^6.2.1",
+    "uuid": "^10.0.0"
   }
 }

@@ -1,23 +1,48 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs/promises';
 import {startNode} from './src/node-setup.js';
-import {loadKnownPeers} from './src/network/index.js';
 import checkBootstrapNodes from './src/common/utils/checkBootstrapNodes.js';
 import config from './src/common/config/index.js';
 
 dotenv.config();
 
-if (await checkBootstrapNodes) {
-  console.log('Bootstrap Nodes are running...');
+async function main() {
+  const bootstrapsRunning = await checkBootstrapNodes();
+  if (bootstrapsRunning) {
+    console.log('Bootstrap Nodes are running...');
 
-  const [, , id, serverPublicKey] = process.argv;
+    const peerId = process.argv[2];
+    if (!peerId) {
+      console.error('No peer ID provided. Usage: npm run start -- <peer-id>');
+      process.exit(1);
+    }
 
-  let storagePath = path.join('.', config.storageDir, `node-${id}`);
+    const storagePath = path.join('.', config.storageDir, `peer-${peerId}`);
 
-  // Load previously connected peers, if any, from a file
-  const knownPeers = loadKnownPeers(storagePath);
+    // Create the directory if it doesn't exist
+    try {
+      await fs.mkdir(storagePath, {recursive: true});
+    } catch (error) {
+      console.error(`Failed to create storage directory: ${error.message}`);
+      process.exit(1);
+    }
 
-  await startNode(storagePath, serverPublicKey);
-} else {
-  console.error('No bootstrap nodes available!');
+    // Start the node with the specified storage path
+    try {
+      console.log(`Starting a node with storage path: ${storagePath}`);
+      await startNode(storagePath);
+    } catch (error) {
+      console.error(`Failed to start node: ${error.message}`);
+      process.exit(1);
+    }
+  } else {
+    console.error('No bootstrap nodes available!');
+    process.exit(1);
+  }
 }
+
+main().catch(error => {
+  console.error(`An error occurred: ${error.message}`);
+  process.exit(1);
+});

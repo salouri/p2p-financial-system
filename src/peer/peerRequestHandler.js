@@ -1,33 +1,10 @@
-export const createAuctionRequest = async (client, sellerId, item) => {
+export const sendTransactionRequest = async (client, receiverId, item) => {
   try {
-    const requestPayload = Buffer.from(JSON.stringify({sellerId, item}));
-    const response = await client.request('createAuction', requestPayload);
+    const requestPayload = Buffer.from(JSON.stringify({receiverId, item}));
+    const response = await client.request('sendTransaction', requestPayload);
     return JSON.parse(response.toString());
   } catch (error) {
-    console.error('Error: creating auction', error.message);
-    return processRequestError(error);
-  }
-};
-export const placeBidRequest = async (client, auctionId, bidderId, amount) => {
-  try {
-    const requestPayload = Buffer.from(
-      JSON.stringify({auctionId, bidderId, amount}),
-    );
-    const response = await client.request('placeBid', requestPayload);
-    return JSON.parse(response.toString());
-  } catch (error) {
-    console.error('Error: placing a bid', error.message);
-    return processRequestError(error);
-  }
-};
-
-export const closeAuctionRequest = async (client, auctionId) => {
-  try {
-    const requestPayload = Buffer.from(JSON.stringify({auctionId}));
-    const response = await client.request('closeAuction', requestPayload);
-    return JSON.parse(response.toString());
-  } catch (error) {
-    console.error('Error: closing auction', error.message);
+    console.error('Error sending transaction', error.message);
     return processRequestError(error);
   }
 };
@@ -46,13 +23,16 @@ export const sendPublicKeyRequest = async client => {
   }
 };
 
-export const getAuctionRequest = async (client, auctionId) => {
+export const getTransactionRequest = async (client, transactionId) => {
   try {
-    const requestBuffer = Buffer.from(JSON.stringify({auctionId}));
-    const responseBuffer = await client.request('getAuction', requestBuffer);
+    const requestBuffer = Buffer.from(JSON.stringify({transactionId}));
+    const responseBuffer = await client.request(
+      'getTransaction',
+      requestBuffer,
+    );
     return responseBuffer;
   } catch (error) {
-    console.error('Error requesting auction:', error.message);
+    console.error('Error requesting transaction info:', error.message);
     return processRequestError(error);
   }
 };
@@ -62,15 +42,13 @@ function processRequestError(error) {
     console.error('CHANNEL_CLOSED: channel closed');
     return {error: 'Channel closed'};
   } else {
-    console.error('Error in createAuctionRequest:', error.message);
+    console.error('Error in sendTransactionRequest:', error.message);
     return {error: error.message};
   }
 }
 
 export default {
-  createAuctionRequest,
-  placeBidRequest,
-  closeAuctionRequest,
+  sendTransactionRequest,
   sendPublicKeyRequest,
-  getAuctionRequest,
+  getTransactionRequest,
 };

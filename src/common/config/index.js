@@ -6,7 +6,7 @@ dotenv.config();
 const config = {
   inDevelopment: process.env.NODE_ENV === 'development',
   inProduction: process.env.NODE_ENV === 'production',
-  commonTopic: Buffer.alloc(32).fill('p2p-auction'),
+  commonTopic: Buffer.alloc(32).fill('p2p-transactions'),
   bootstrapNodes: [
     {host: '127.0.0.1', port: 30001}, //  hyperdht --bootstrap --host 127.0.0.1 --port 30001
   ],
@@ -18,14 +18,9 @@ const config = {
   },
   systemEndpoints: new Set([
     'notifyPeers',
-    'closeMyAuction',
-    'createMyAuction',
-    'getMyAuction',
-    'getAuction',
     'sendPublicKey',
-    'createAuction',
-    'closeAuction',
-    'placeBid',
+    'sendTransaction',
+    'getTransaction',
   ]),
 };
 

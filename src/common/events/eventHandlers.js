@@ -1,53 +1,47 @@
+// common/events/eventHandlers.js
 import eventEmitter from './eventEmitter.js';
+import transactionManager from '../../transaction/transactionManager.js';
 import state from '../state/index.js';
-import getAllPeers from '../../peer/getAllPeers.js';
-import requestHandlers from '../../peer/peerRequestHandler.js';
+import getClientPublicKey from '../../peer/getClientPublicKey.js';
 
-const broadcastMessageToPeers = (msg, data = null) => {
-  const allPeers = getAllPeers();
-  const message = `${msg} ${data ? ':' + JSON.stringify(data) : '.'}`;
-  for (const {client} of allPeers) {
+// Register event handlers
+
+// Handle notifying peers with a message or stringified data
+eventEmitter.on('notifyPeers', (msgString, data = null) => {
+  const message = `${msgString}${data ? ': ' + JSON.stringify(data) : '.'}`;
+  console.log('message: ', message);
+  broadcastMessageToPeers(message);
+});
+
+// Handle peer connections
+eventEmitter.on('peerConnected', client => {
+  const publicKey = getClientPublicKey(client);
+  console.log(
+    'New peer connected:',
+    `Public Key: ${publicKey ? publicKey?.substring(0, 10) : ''}...`,
+  );
+  // Optionally, send the client the current state or any initial data
+});
+
+// Handle server shutdown
+eventEmitter.on('serverShutdown', async () => {
+  console.log('Server is shutting down...');
+  const peers = [...state.connectedPeers.values()];
+  peers.forEach(({client}) => {
+    client.destroy();
+  });
+  await state.db.close();
+  console.log('Database closed.');
+});
+
+function broadcastMessageToPeers(message) {
+  const peers = [...state.connectedPeers.values()];
+  peers.forEach(({client}) => {
     try {
       client.event('notifyPeers', Buffer.from(JSON.stringify({message})));
     } catch (error) {
       console.error('Error notifying peer:', error);
     }
-  }
-};
-
-eventEmitter.on('auctionCreated', auction => {
-  broadcastMessageToPeers('New auction opened', auction);
-});
-
-eventEmitter.on('bidPlaced', bid => {
-  broadcastMessageToPeers('New bid placed', bid);
-});
-
-eventEmitter.on('auctionClosed', auction => {
-  broadcastMessageToPeers('Auction closed', auction);
-});
-
-eventEmitter.on('serverShutdown', () => {
-  broadcastMessageToPeers('Server is shutting down.');
-  const allPeers = getAllPeers();
-  for (const {client} of allPeers) {
-    client.destroy();
-  }
-});
-
-eventEmitter.on('notifyPeers', message => {
-  broadcastMessageToPeers(message, message?.data);
-  console.log(`Peers notified with message: "${message}".`);
-});
-
-eventEmitter.on('peerConnected', client => {
-  const activeAuctions = state.auctionManager.getCachedActiveAuctions();
-  const message = {auctions: activeAuctions};
-  try {
-    client.event('notifyPeers', Buffer.from(JSON.stringify({message})));
-  } catch (error) {
-    console.error('Error notifying peer:', error);
-  }
-});
-
+  });
+}
 export default eventEmitter;
